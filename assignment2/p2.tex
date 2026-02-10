@@ -1,9 +1,12 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+
 
 \title{Problem Set 2}
-\author{Group 14 - Ragnhild, Maya, Halvard}
+\author{Group 14 - Ragnhild Klette, Maya Evensen, Halvard Håvardsrud}
 \date{\today}
 
 \begin{document}
@@ -14,7 +17,22 @@
 \section*{Part 1}
 \subsection*{Exercise 1 - Markov Processes}
 \begin{enumerate}
-  \item 
+  \item (*) The model does not depend on history to find the future states, it only relies on the current state. This is the Markov property, and it is satisfied in this model.
+  \item (*) \[
+  \begin{array}{c|ccccc}
+        & E & P & S & R & M \\ \hline
+    E & 0.7  & 0.1  & 0.1  & 0.1  & 0   \\
+    P & 0.6  & 0    & 0.4  & 0    & 0   \\
+    S & 0.35 & 0    & 0.30 & 0.30 & 0.05\\
+    R & 1    & 0    & 0    & 0    & 0   \\
+    M & 0    & 0    & 0    & 0    & 1
+  \end{array}
+
+  
+
+  \]
+
+
 \end{enumerate}
 
 
