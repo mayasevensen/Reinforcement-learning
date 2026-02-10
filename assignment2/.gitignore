@@ -7,5 +7,3 @@
 *.fdb_latexmk
 *.synctex.gz
 
-# build dir 
-build/
