@@ -4,21 +4,41 @@
 \usepackage{graphicx}
 \usepackage{float}
 
-
 \title{Problem Set 2}
-\author{Group 14 - Ragnhild Klette, Maya Evensen, Halvard Håvardsrud}
+\author{Group 14 - Ragnhild Klette, Maya Evensen, Halvor Håvardsruud}
 \date{\today}
 
 \begin{document}
-
 \maketitle
-
 
 \section*{Part 1}
 \subsection*{Exercise 1 - Markov Processes}
+
 \begin{enumerate}
   \item (*) The model does not depend on history to find the future states, it only relies on the current state. This is the Markov property, and it is satisfied in this model.
-  \item (*) \[
+
+  \item (*) 
+
+    We model the behavior of the Mars Rover as a discrete-time Markov process
+    $(\mathcal{S}, P)$, where $\mathcal{S}$ denotes the set of states and
+    $P$ the transition probability matrix.
+
+
+    The state space of the Markov process is defined as
+    \[
+    \mathcal{S} = \{E, P, S, R, M\},
+    \]
+    where:
+    \begin{itemize}
+      \item $E$: Normal exploration mode
+      \item $P$: Taking pictures of the sky
+      \item $S$: Taking samples from the ground
+      \item $R$: Recharging
+      \item $M$: Malfunction (absorbing state)
+    \end{itemize}
+    
+        
+  \[
   \begin{array}{c|ccccc}
         & E & P & S & R & M \\ \hline
     E & 0.7  & 0.1  & 0.1  & 0.1  & 0   \\
@@ -27,14 +47,98 @@
     R & 1    & 0    & 0    & 0    & 0   \\
     M & 0    & 0    & 0    & 0    & 1
   \end{array}
-
-  
-
   \]
+  
+  \begin{figure}[h]
+    \centering
+    \caption{Mars rover Markov process graph representation}
+    \label{fig:rover}
+  \end{figure}
+
+  \item No, all states are not reachable from the normal operative mode. It can not reach malfunction (or shutdown). If the model has reached malfunction, it can not reach any other state except shutdown.
+  \item If the robot is in normal operative mode, the probability of malfunctioning within the next 10 minutes is 0. Within the next 20 minutes, there is only one path to malfunction, which is through "take samples". The probability of this happening is $0.1 \cdot 0.05 = 0.005$. Within the next 30 minutes, there are multiple paths to malfunction, starting from Explore, E $\rightarrow$:
+  
+    \begin{itemize}
+    \item  E $\rightarrow$ S $\rightarrow$ M, $0.7 \cdot 0.1 \cdot 0.05 = 0.0035$
+    \item  S $\rightarrow$ S $\rightarrow$ M, $0.1 \cdot 0.3 \cdot 0.05 = 0.002$
+    \item  P $\rightarrow$ S $\rightarrow$ M, $0.1 \cdot 0.4 \cdot 0.05 = 0.0015$
+    \item Plus the probability of malfunctioning after 20 minutes, $0.005$
+    \item $0.0035 + 0.002 + 0.0015 + 0.005 = 0.012$
+    \end{itemize}
+    There is a $1.2\%$ chance of malfunction after 30 minutes.
+
+\item (*) If the probability of malfunctioning while in the sampling (digging) state depends on the number of times the robot has previously extracted samples, then the process no longer satisfies the Markov property in its current formulation. Since you no longer know the transition probabilities based on the current state. If the malfunction probability changes with the number of past digging actions, then knowing state S in no longer sufficient to determine the next state distribution.
+
+To recover Markovianity all information needed to determine future transitions need to be present in the current state. Adding the number of times the rover has sampled in the state definition. $S_k$ = "sampling for the k-th time" would fix this issue and the process becomes Markovian again.
+
+\item Yes. Model the board with the configuration of all Xs and Os and whose turn it is, then the state for the game at time t+1 is only dependent on the current state at time t.
+
+\item There are $3^9$ possible configurations of the tic-tac-toe board, since each of the 9 squares can be either empty, contain an X, or contain an O. Many of these configurations are not valid game states, for instance boards with five Xs and one O. Removing such illegal and unreachable configurations significantly reduces the effective size of the state space.
+
+The number of distinct states can be even more reduced by exploiting symmetries of the board, since multiple configurations are equivalent under rotations and reflections. Even after accounting for these reductions, the number of states remains large and grows exponentially with the size of the board.
+
+This exponential growth becomes evident when increasing the board size. For a 4×4 board, the total number of configurations is $3^16$, which is 2187 times larger than the $3^9$ configurations of the 3×3 board. This illustrates the rapid increase of the state space and shows scalability limitation of Markov process models for larger games. 
 
 
 \end{enumerate}
 
+\subsection*{Exercise 2 - Markov Reward Processes}
 
+\begin{enumerate}
+    \item (*)
+        \begin{figure}[h]
+            \centering
+            \caption{Mars rover MRP (Markov reward process)}
+            \label{fig:rover}
+        \end{figure}
+    \item E(10 minutes) = $0.7\cdot0+0.1\cdot5+0.1\cdot20+0.1\cdot0 = 2.5$.
+    The probability of getting a negative reward in twenty minutes is the same as the probability of getting a malfunction in twenty minutes, which is 0.5\%
+    
+
+\end{enumerate}
+
+\subsection*{Exercise 3 - Markov Decision Processes}
+\begin{enumerate}
+    \item (*) 
+    
+    \textbf{States}
+    The state space remains defined as:
+    \[
+    \mathcal{S} = \{E, P, S, R, M\},
+    \]
+    where:
+    \begin{itemize}
+      \item $E$: Normal exploration mode
+      \item $P$: Taking pictures of the sky
+      \item $S$: Taking samples from the ground
+      \item $R$: Recharging
+      \item $M$: Malfunction (absorbing state)
+    \end{itemize}
+    
+    \textbf{Actions}
+    \begin{itemize}
+        \item $A(E) =$ \{explore again, take pictures, take samples, recharge\}
+        \item $A(P) =$ \{explore, take samples\}
+        \item $A(S) =$ \{explore, take samples again, recharge, malfunction\}
+        \item $A(R) =$ \{explore\}
+        \item $A(M) =$\{$\phi$\}
+    \end{itemize}
+
+    \textbf{Transition}
+    
+    Moving to state s' after taking action a in state s is:
+    \[
+        P(s' \mid s,a)
+    \]
+    and since we are choosing the action and not randomly selecting ...
+    
+
+    \textbf{Policy}
+    
+    A policy $\pi$ specifies the rover's behaviour.
+
+    
+\end{enumerate}
 
 \end{document}
+
