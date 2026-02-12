@@ -1,22 +1,198 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
 
 \title{Problem Set 2}
-\author{Group 14 - Ragnhild, Maya, Halvard}
+\author{Group 14 - Ragnhild Klette, Maya Evensen, Halvor Håvardsruud}
 \date{\today}
 
 \begin{document}
-
 \maketitle
-
 
 \section*{Part 1}
 \subsection*{Exercise 1 - Markov Processes}
+
 \begin{enumerate}
-  \item 
+  \item (*) The model does not depend on history to find the future states, it only relies on the current state. This is the Markov property, and it is satisfied in this model.
+
+  \item (*) 
+
+    We model the behavior of the Mars Rover as a discrete-time Markov process
+    $(\mathcal{S}, P)$, where $\mathcal{S}$ denotes the set of states and probabilities  the transition probability matrix.
+
+
+    The state space of the Markov process is defined as
+    \[
+    \mathcal{S} = \{E, P, S, R, M\},
+    \]
+    where:
+    \begin{itemize}
+      \item $E$: Normal exploration mode
+      \item $P$: Taking pictures of the sky
+      \item $S$: Taking samples from the ground
+      \item $R$: Recharging
+      \item $M$: Malfunction (absorbing state)
+    \end{itemize}
+    
+        
+  \[
+  \begin{array}{c|ccccc}
+        & E & P & S & R & M \\ \hline
+    E & 0.7  & 0.1  & 0.1  & 0.1  & 0   \\
+    P & 0.6  & 0    & 0.4  & 0    & 0   \\
+    S & 0.35 & 0    & 0.30 & 0.30 & 0.05\\
+    R & 1    & 0    & 0    & 0    & 0   \\
+    M & 0    & 0    & 0    & 0    & 1
+  \end{array}
+  \]
+  
+  \begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{mars_rover.png}
+    \caption{Mars rover Markov process graph representation}
+    \label{fig:rover}
+  \end{figure}
+
+  \item No, all states are not reachable from the normal operative mode. It can not reach malfunction (or shutdown). If the model has reached malfunction, it can not reach any other state except shutdown.
+  \item If the robot is in normal operative mode, the probability of malfunctioning within the next 10 minutes is 0. Within the next 20 minutes, there is only one path to malfunction, which is through "take samples". The probability of this happening is $0.1 \cdot 0.05 = 0.005$. Within the next 30 minutes, there are multiple paths to malfunction, starting from Explore, E $\rightarrow$:
+  
+    \begin{itemize}
+    \item  E $\rightarrow$ S $\rightarrow$ M, $0.7 \cdot 0.1 \cdot 0.05 = 0.0035$
+    \item  S $\rightarrow$ S $\rightarrow$ M, $0.1 \cdot 0.3 \cdot 0.05 = 0.002$
+    \item  P $\rightarrow$ S $\rightarrow$ M, $0.1 \cdot 0.4 \cdot 0.05 = 0.0015$
+    \item Plus the probability of malfunctioning after 20 minutes, $0.005$
+    \item $0.0035 + 0.002 + 0.0015 + 0.005 = 0.012$
+    \end{itemize}
+    There is a $1.2\%$ chance of malfunction after 30 minutes.
+
+\item (*) If the probability of malfunctioning while in the sampling (digging) state depends on the number of times the robot has previously extracted samples, then the process no longer satisfies the Markov property in its current formulation. Since you no longer know the transition probabilities based on the current state. If the malfunction probability changes with the number of past digging actions, then knowing state S in no longer sufficient to determine the next state distribution.
+
+To recover Markovianity all information needed to determine future transitions need to be present in the current state. Adding the number of times the rover has sampled in the state definition. $S_k$ = "sampling for the k-th time" would fix this issue and the process becomes Markovian again.
+
+\item Yes. Model the board with the configuration of all Xs and Os and whose turn it is, then the state for the game at time t+1 is only dependent on the current state at time t.
+
+\item There are $3^9$ possible configurations of the tic-tac-toe board, since each of the 9 squares can be either empty, contain an X, or contain an O. Many of these configurations are not valid game states, for instance boards with five Xs and one O. Removing such illegal and unreachable configurations significantly reduces the effective size of the state space.
+
+The number of distinct states can be even more reduced by exploiting symmetries of the board, since multiple configurations are equivalent under rotations and reflections. Even after accounting for these reductions, the number of states remains large and grows exponentially with the size of the board.
+
+This exponential growth becomes evident when increasing the board size. For a 4×4 board, the total number of configurations is $3^16$, which is 2187 times larger than the $3^9$ configurations of the 3×3 board. This illustrates the rapid increase of the state space and shows scalability limitation of Markov process models for larger games. 
+
+
+\end{enumerate}
+
+\subsection*{Exercise 2 - Markov Reward Processes}
+
+\begin{enumerate}
+    \item (*)
+        \begin{figure}[h]
+            \centering
+            \includegraphics[width=1.0\textwidth]{mars_rover_reward.png}
+            \caption{Mars rover MRP (Markov reward process)}
+            \label{fig:rover}
+        \end{figure}
+    \item E(10 minutes) = $0.7\cdot0+0.1\cdot5+0.1\cdot20+0.1\cdot0 = 2.5$.
+    The probability of getting a negative reward in twenty minutes is the same as the probability of getting a malfunction in twenty minutes, which is 0.5\%
+    
+
+\end{enumerate}
+
+\subsection*{Exercise 3 - Markov Decision Processes}
+\begin{enumerate}
+    \item (*) 
+    
+    \textbf{States}
+    
+    The state space remains defined as:
+    \[
+    \mathcal{S} = \{E, P, S, R, M\},
+    \]
+    where:
+    \begin{itemize}
+      \item $E$: Normal exploration mode
+      \item $P$: Taking pictures of the sky
+      \item $S$: Taking samples from the ground
+      \item $R$: Recharging
+      \item $M$: Malfunction (absorbing state)
+    \end{itemize}
+    
+    \textbf{Actions}
+    \begin{itemize}
+        \item $A(E) =$ \{explore again, take pictures, take samples, recharge\}
+        \item $A(P) =$ \{explore, take samples\}
+        \item $A(S) =$ \{explore, take samples again, recharge, malfunction\}
+        \item $A(R) =$ \{explore\}
+        \item $A(M) =$\{$\phi$\}
+    \end{itemize}
+
+    \textbf{Transition probabilities}
+    
+    Moving to state s' after taking action a in state s is:
+    \[
+        P(s' \mid s,a)
+    \]
+    Since the exploration state is the only state where the rover chooses the next state, all actions made from E has a transition probability of 1.
+    Transition probabilities from all other states can be read from figure 2.
+    
+
+    \textbf{Policy}
+    
+    A policy $\pi$ specifies the rover's behavior. E.g. we want a policy that maximizes the expected cumulative reward. So the rover must balance reward vs risk.
+
+    \item The optimal policies would most likely not be the same. When the policy is minimizing risk the model could easily avoid "take samples"- state making the risk and the reward = 0.
+    If you want to maximize the reward the model would need to balance reward vs risk.
+
+    If you have a short time horizon both models would still be exploring. The risk minimizing policy might not have encountered a malfunction yet. Therefor the earlier steps might be more similar compared to a longer time horizon where the model start exploiting more than exploring.
+
+    \item States: \{H, nH\}, (H: headache, nH: not headache)
+    
+    Actions: A(H) : \{A, B, C\}
+
+    Rewards: H: 0, nH: positive reward 
+
+    Transitions:  $P(s' \mid s,a)$
+    
+    \item RL problems that depend on remembering more that just the current state. Non-stationary environments.
+
+    
+\end{enumerate}
+
+\subsection*{Exercise 4 - Bellman equations}
+\begin{enumerate}
+    \item (*) Bellman equations describe the recursive relationship of value functions. But a value function requires rewards. Therefor you cannot derive Bellman equations from MPs.
+    \item 
+    \begin{gather*}
+        v_\pi(s) = E_\pi[H^t|S^t = s], \quad \quad G^t = \sum_{i=0}^T\gamma^iR^{(t+i)} \\
+        v_\pi(s) = E_\pi[H^0|S^0 = s] \\
+        v_\pi(s) = E_\pi[\sum_{i=0}^T\gamma^iR^i|S^0 = s] \\
+        v_\pi(s) = E_\pi[R^0 + \sum_{i=1}^T\gamma^iR^i|S^0 = s]\\
+        v_\pi(s) = E_\pi[R^0 + \gamma G^1|S^0 = s]\\
+        v_\pi(s) = E_\pi[R^0 + \gamma v_\pi(s^\prime)|S^0 = s]
+    \end{gather*}
+    
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=1.0\textwidth]{3_2.png}
+        \caption{Backup diagram for MRP (4.2)}
+        \label{fig:Backup}
+    \end{figure}
+
+    \item No. To define Bellman optimality equations require you to make an action and MRP - does not have actions therefore no choices and nothing to optimize.
+\end{enumerate}
+    
+
+\newpage
+\newpage
+\section*{Part II  - Markov Report}
+
+\begin{enumerate}
+    \item
 \end{enumerate}
 
 
 
+
 \end{document}
+
