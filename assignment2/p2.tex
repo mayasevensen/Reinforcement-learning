@@ -3,6 +3,7 @@
 \usepackage[english]{babel}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{amsmath}
 
 \title{Problem Set 2}
 \author{Group 14 - Ragnhild Klette, Maya Evensen, Halvor HÃ¥vardsruud}
@@ -20,8 +21,7 @@
   \item (*) 
 
     We model the behavior of the Mars Rover as a discrete-time Markov process
-    $(\mathcal{S}, P)$, where $\mathcal{S}$ denotes the set of states and
-    $P$ the transition probability matrix.
+    $(\mathcal{S}, P)$, where $\mathcal{S}$ denotes the set of states and probabilities  the transition probability matrix.
 
 
     The state space of the Markov process is defined as
@@ -51,6 +51,7 @@
   
   \begin{figure}[h]
     \centering
+    \includegraphics[width=1.0\textwidth]{mars_rover.png}
     \caption{Mars rover Markov process graph representation}
     \label{fig:rover}
   \end{figure}
@@ -88,6 +89,7 @@ This exponential growth becomes evident when increasing the board size. For a 4Ã
     \item (*)
         \begin{figure}[h]
             \centering
+            \includegraphics[width=1.0\textwidth]{mars_rover_reward.png}
             \caption{Mars rover MRP (Markov reward process)}
             \label{fig:rover}
         \end{figure}
@@ -102,6 +104,7 @@ This exponential growth becomes evident when increasing the board size. For a 4Ã
     \item (*) 
     
     \textbf{States}
+    
     The state space remains defined as:
     \[
     \mathcal{S} = \{E, P, S, R, M\},
@@ -124,21 +127,72 @@ This exponential growth becomes evident when increasing the board size. For a 4Ã
         \item $A(M) =$\{$\phi$\}
     \end{itemize}
 
-    \textbf{Transition}
+    \textbf{Transition probabilities}
     
     Moving to state s' after taking action a in state s is:
     \[
         P(s' \mid s,a)
     \]
-    and since we are choosing the action and not randomly selecting ...
+    Since the exploration state is the only state where the rover chooses the next state, all actions made from E has a transition probability of 1.
+    Transition probabilities from all other states can be read from figure 2.
     
 
     \textbf{Policy}
     
-    A policy $\pi$ specifies the rover's behaviour.
+    A policy $\pi$ specifies the rover's behavior. E.g. we want a policy that maximizes the expected cumulative reward. So the rover must balance reward vs risk.
+
+    \item The optimal policies would most likely not be the same. When the policy is minimizing risk the model could easily avoid "take samples"- state making the risk and the reward = 0.
+    If you want to maximize the reward the model would need to balance reward vs risk.
+
+    If you have a short time horizon both models would still be exploring. The risk minimizing policy might not have encountered a malfunction yet. Therefor the earlier steps might be more similar compared to a longer time horizon where the model start exploiting more than exploring.
+
+    \item States: \{H, nH\}, (H: headache, nH: not headache)
+    
+    Actions: A(H) : \{A, B, C\}
+
+    Rewards: H: 0, nH: positive reward 
+
+    Transitions:  $P(s' \mid s,a)$
+    
+    \item RL problems that depend on remembering more that just the current state. Non-stationary environments.
 
     
 \end{enumerate}
+
+\subsection*{Exercise 4 - Bellman equations}
+\begin{enumerate}
+    \item (*) Bellman equations describe the recursive relationship of value functions. But a value function requires rewards. Therefor you cannot derive Bellman equations from MPs.
+    \item 
+    \begin{gather*}
+        v_\pi(s) = E_\pi[H^t|S^t = s], \quad \quad G^t = \sum_{i=0}^T\gamma^iR^{(t+i)} \\
+        v_\pi(s) = E_\pi[H^0|S^0 = s] \\
+        v_\pi(s) = E_\pi[\sum_{i=0}^T\gamma^iR^i|S^0 = s] \\
+        v_\pi(s) = E_\pi[R^0 + \sum_{i=1}^T\gamma^iR^i|S^0 = s]\\
+        v_\pi(s) = E_\pi[R^0 + \gamma G^1|S^0 = s]\\
+        v_\pi(s) = E_\pi[R^0 + \gamma v_\pi(s^\prime)|S^0 = s]
+    \end{gather*}
+    
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=1.0\textwidth]{3_2.png}
+        \caption{Backup diagram for MRP (4.2)}
+        \label{fig:Backup}
+    \end{figure}
+
+    \item No. To define Bellman optimality equations require you to make an action and MRP - does not have actions therefore no choices and nothing to optimize.
+\end{enumerate}
+    
+
+\newpage
+\newpage
+\section*{Part II  - Markov Report}
+
+\begin{enumerate}
+    \item
+\end{enumerate}
+
+
+
 
 \end{document}
 
