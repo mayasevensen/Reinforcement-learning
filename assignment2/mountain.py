@@ -7,7 +7,6 @@ script_dir = os.path.dirname(__file__)
 
 
 
-
 class Mountain():
     def __init__(self):
         
