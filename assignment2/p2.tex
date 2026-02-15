@@ -4,6 +4,10 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{amsmath}
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{caption}
+
+
 
 \title{Problem Set 2}
 \author{Group 14 - Ragnhild Klette, Maya Evensen, Halvor Håvardsruud}
@@ -172,27 +176,149 @@ This exponential growth becomes evident when increasing the board size. For a 4�
         v_\pi(s) = E_\pi[R^0 + \gamma v_\pi(s^\prime)|S^0 = s]
     \end{gather*}
     
-    \begin{figure}[h]
+    \begin{figure}[H]
         \centering
         \includegraphics[width=1.0\textwidth]{3_2.png}
         \caption{Backup diagram for MRP (4.2)}
         \label{fig:Backup}
     \end{figure}
+    
 
     \item No. To define Bellman optimality equations require you to make an action and MRP - does not have actions therefore no choices and nothing to optimize.
 \end{enumerate}
     
 
-\newpage
-\newpage
+\clearpage
+
 \section*{Part II  - Markov Report}
 
 \begin{enumerate}
+    \item $M = (S, A, T, R, \gamma)$
+
+    \textbf{States}: 
+    The grid made up by 31x100 pixels where each state is S = (i, j). Terminal states are all states in the rightmost column S = (i, 99)
+
+    \textbf{Actions}: 
+    The actions at state (i, j) is: $A((i, j)) = \{(i+1, j), (i+1, j-1), (i+1, j+1)\}$. Straight to the right, diagonally to the top right and diagonally to the bottom right respectfully.
+
+    \textbf{Transition probability}:
+    \begin{itemize}
+        \item If inside bounds $P(s'|s, a) = 1$
+        \item Boundary rule: If robot tries to move above row 0 or below row 30 $\rightarrow$ it moves straight instead 
+    \end{itemize}
+
+    \textbf{Reward function}: 
+    Since we want to traverse the mountain in the fastest way possible - a smoother terrain gives a higher reward and a rougher terrain gives lower reward. $R(s') = roughness(s')$
+
+    \textbf{Discount factor}: 
+    $\gamma \in [0, 1]$ Since we are finding the shortest path in a finite space $\gamma = 1$ is natural.
+
+    \item The value of going straight = expected immediate reward + $\gamma \cdot$ expected future value
+    $v_{\pi_{str}}(s) = E_\pi[R^0 + v_{\pi_{str}}(s') |S^0 = s]$ 
+
+    \item (*) We assume that the task is asking to perform one iteration of the policy evaluation. When running policy evaluation with different sweep orders, the intermediate results differ significantly. After one sweep, we obtained:
+    \begin{itemize}
+        \item Right-to-left (RTL): $V(0,0) \approx -67.43$
+        \item Left-to-right (LTR): $V(0,0) \approx -0.78$
+    \end{itemize}
+    The difference occurs because updates are done in-place. Since transitions always move to the right, a right-to-left sweep updates “future” states first, allowing value information to propagate backward more quickly. A left-to-right sweep initially uses mostly un-updated values, so it reflects less of the long-term return after one pass.
+
+    
+    \item (*) We learned that state ordering affects convergence speed but not the final value function (assuming full convergence). Right-to-left converges faster in this problem because it aligns with the direction in which the value information must propagate.
+
+    \item 
     \item
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.0\textwidth]{straight_policy_trajectory.png}
+        \caption{Straight policy trajectory from (3,0) and (15,0)}
+        \label{fig:trajectory}
+    \end{figure}
+
+    
+    \item By following the straight policy projectory, the optimal starting point would be at row index 7.
+
+
+    \item 
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.0\textwidth]{random_trajectory.png}
+        \caption{Random policy trajectory from (15,0)}
+        \label{fig:random_trajectory}
+    \end{figure}
+    \item 
+    
+    \item (*) Yes, comparing the two value functions clearly shows that the performance of a policy depends on how it interacts with the terrain. 
+    
+    Under the straight policy, the robot follows a fixed horizontal path, so the total return depends entirely on the roughness of that specific row. This makes the outcome predictable, but it also means the robot cannot avoid rough areas. 
+
+    Under the random policy, the robot moves up, down or straight with equal probability. While this introduces variability, it allows the robot to sometimes more into smoother terrain. In our results, the random policy actually achieved a higher value at (15, 0) than the straight policy, meaning it resulted in a lower expected travel time from that starting position.
+
+    This shows that a simple deterministic strategy is not necessarily better - in this terrain, some flexibility can lead to improved expected performance.
+    
+
+    \item (*) We compare the three values:
+    
+    \[v_{\pi_{\text{str}}}(15,0) = -52.80\] \[v_{\pi_{\text{str}}}(3,0) = -57.81\]\[v_{\pi_{\text{rnd}}}(15,0) = -51.31\]
+    
+    Since higher values (i.e., less negative values) correspond to lower expected total travel time, the best combination is:
+    
+    \[{\pi_{\text{rnd}} \text{ starting from } (15,0)}\]
+    
+    This combination has the highest value among the three and therefore yields the lowest expected travel time.
+    
+    \item No, exploration does not affect the final result. The value functions were computed using dynamic programming and a known model of the environment, not from sampled experience. Therefore every state is evaluated directly through the Bellman expectation equation regardless of whether it would be visited under the policy. Exploration is only necessary in learning algorithms such as Monte Carlo or temporal-difference methods, where the agent must visit states to estimate their values. Here, both the straight and random policies converge to their true value functions independently of exploration.
+
+    \item 
+    \item
+    \item
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.0\textwidth]{best_trajectory.png}
+        \caption{Standard policy iteration}
+        \label{fig:optimal trajectory}
+    \end{figure}
+
+    \item
+    \item
+
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=1.0\textwidth]{best_trajectory_trunc.png}
+        \caption{Truncated policy iteration}
+        \label{fig:optimal trajectory truncated}
+    \end{figure}
+    
+    In k = 1 truncated policy iteration we alternate between one sweep of policy evaluation and greedy policy improvement.
+    In direct value iteration we update the value function using the Bellman optimality equation by taking the maximum over actions at each step.
+    Both approaches converge to the same optimal policy, but they differ in whether they explicitly maintain a policy during learning.
+
+    \item
+    \item
+        \begin{figure}[H]
+            \centering
+            \includegraphics[width=1.0\textwidth]{k1_traj_value.png}
+            \caption{Value iteration}
+            \label{fig:optimal trajectory from (15, 0)}
+        \end{figure}
+    
+    (*) Yes, the optimal policies obtained from policy iteration, truncated policy iteration, and value iteration are essentially identical. All algorithms converge to a solution of the Bellman optimality equations for the same MDP. Minor differences may appear due to numerical tolerance or tie-breaking when multiple actions have equal value, but the achieved returns and trajectories are effectively the same.
+
+    \item (*) Among the methods tested, direct value iteration was the fastest. The measured runtimes were approximately:
+    \begin{itemize}
+        \item Value Iteration: 0.057 s
+        \item Policy Iteration: 0.266 s
+        \item Truncated Policy Iteration (k = 3): 0.412 s
+    \end{itemize}
+
+The reason value iteration performs best in this problem is that the environment is effectively acyclic: the robot always moves to the right. By sweeping states from right to left, value information propagates very efficiently toward the start states. As a result, only a small number of sweeps are needed.
+
+Policy iteration and truncated policy iteration include additional overhead from repeatedly maintaining and updating an explicit policy. In this gridworld, computing highly accurate intermediate value functions is not necessary to determine the optimal action, so the extra work makes these methods slower.
+    
 \end{enumerate}
-
-
-
 
 \end{document}
 
