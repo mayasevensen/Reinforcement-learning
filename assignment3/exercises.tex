@@ -37,8 +37,27 @@
 
     In the correlated case, the samples are concentrated around the diagonal, meaning the distribution is no longer uniform. Therefore, the empirical fraction inside the circle no longer corresponds to the geometric area ratio. The estimator becomes biased, which explains why $\hat{\pi} = 2.8084$ is significantly lower than $\pi$.
 
-
+    What we are actually estimating here is the fraction of diamater of the unit circle, that falls inside the diagonal of a unit square. Wich is $\frac{2r}{\sqrt{2}} \approx 0.70710$, close to our estimate of $0.7021$. Ragnhild er kul og Maya er rå. It is worth to mention that some points from our distribution might even fall outside the diagonal of the square. 
     
+\end{enumerate}
+
+\section{MC and MCB's}
+\subsection*{Exercise 2}
+
+\begin{enumerate}
+    \item In MAB we where solving a control problem. This is because we have to learn a policy that maximizes expected cummulative reward by choosing actions. 
+    
+    \item In MAB we are estimating the expected reward of each arm. This corresponds an action-value function, since we are estimating the value of taking an action rather than the state. In MAB there is no transition between states, thus the action value is given by $q_\pi = E[R | A = a]$.
+
+    \item Because we have statioanaty states in MAB, a trajectory corresponds to a sequence of arms and rewards over time. ie. $\{(A_1, R_1,), ..., (A_n, R_n)\}$. A collection of trajectories correspond to multiple independent runs of the bandit process. Each of wich will generate a different series of actions and rewards. 
+
+    \item The MAB algorithms like $\epsilon$-greedy correspond to MC control. This is because they estimate action values and use them to improve the policy. The MC prediction evaluates a fixed policy, and does not change it the way we do in MAB. 
+    
+    \item In MAB, a MC prediction would correspond to exploiting a given or earlier learned algorithm. In this situation we effectivly just estimate the expected reward of each arm under the given policy, without doing any policy improvement. 
+
+    \item Both in MAB's and in MC control, $\epsilon$ is used to ensure suffisient exploration. We set this value to ensure that we dont exploit the best policy so far too much. It gives us a better guarantee that all actions are sufficiently explored. In MC control this also means that we need to visit more state-action pairs. In both cases it controlls the relationship between exploring and exploiting. 
+    
+    \item If we reduxe a standard RL problem solved by MC to a MAB problem we will loose the ability to evaluete a state-action value $q_\pi = E = [R | S = s,  A = a]$. We are essentially loosing the ability to incorporate state transitions and long-term rewards. If we only use MAB, we are trating every RL problem as a stationary single-state problem with immidiate rewards. 
 \end{enumerate}
     
 \end{document}

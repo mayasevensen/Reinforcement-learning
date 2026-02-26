@@ -3,8 +3,9 @@ import numpy as np
 np.random.seed(0)
 N = 10000
 
-def estimate(x1, x2):
-    inside = ((x1 - 0.5)**2 + (x2 - 0.5)**2) <= 0.25
+def estimate(x1, x2):   
+    r = 0.5
+    inside = ((x1 - r)**2 + (x2 - r)**2) <= r**2
     N_in = inside.sum()
     X_hat = N_in / len(x1)
     pi_hat = 4 * X_hat
