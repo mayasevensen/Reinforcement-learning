@@ -1,0 +1,44 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{INF266 - Problem Set 3}
+\author{Ragnhild Klette, Maya Evensen, Halvard Håvardsrud}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Monte Carlo Methods}
+\subsection*{Exercise 1}
+\begin{enumerate}
+    \item Square area: $A_s = 1$. 
+    Since the circle has a diameter of 1, the radius is: $r=\frac12$.
+    The circle area is defined as: \[A_c= \pi r^2 =\pi(\frac{1}{2})^2 = \frac{\pi}{4}\].
+    So the ratio between circle area and square area is: \[X=\frac{A_c}{A_s}=\frac{\frac{\pi}{4}}{1}=\frac{\pi}{4} \]
+
+    \item Monte Carlo estimate $\hat X =$ (fraction of sampled points that fall inside the circle).
+    So set $X \approx \hat{X}$: \[\frac{\pi}{4} \approx \hat{X} \rightarrow \pi \approx 4\hat{X}\]
+    Therefore the estimator is: \[\hat{\pi}=4\hat{X}\]
+
+    \item  Generated 10,000 i.i.d. samples uniformly distributed in $[0,1]^2$. Done in code.
+    
+    \item A point is counted as being inside the inscribed circle if $(x_1 - 0.5)^2 + (x_2 - 0.5)^2 \leq 0.25$. From $N= 10,000$ samples, $N_{in} = 7,767$ points fell inside the circle, giving: \[\hat{X} = \frac{7767}{10000} = 0.7767\]
+    
+    \item Since $\pi = 4\hat{X} = 4$, we estimate: \[\hat{\pi} = 4\hat{X} = 4 \times 0.7767 = 3.1068\]
+    The estimate is close to the true value of $\pi \approx 3.1416$, with some deviation due to Monte Carlo sampling error.
+
+    \item Done in code.
+
+    \item Applying the same inside-circle test, we obtained $N_{in,new} = 7021$, therefore: 
+    \[\hat{X}_{new} = 0.7021 , \hat{\pi}_{new} = 4\hat{X}_{new} = 2.8084\]
+    
+    \item (*) In the uniform case, the samples are distributed uniformly over the square, so the fraction of points inside the circle estimates the area ratio $\frac{\pi}{4}$ and $\hat{\pi}$ approximates $\pi$ up to sampling error.
+
+    In the correlated case, the samples are concentrated around the diagonal, meaning the distribution is no longer uniform. Therefore, the empirical fraction inside the circle no longer corresponds to the geometric area ratio. The estimator becomes biased, which explains why $\hat{\pi} = 2.8084$ is significantly lower than $\pi$.
+
+
+    
+\end{enumerate}
+    
+\end{document}
