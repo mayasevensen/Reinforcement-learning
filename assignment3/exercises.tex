@@ -60,4 +60,24 @@
     \item If we reduxe a standard RL problem solved by MC to a MAB problem we will loose the ability to evaluete a state-action value $q_\pi = E = [R | S = s,  A = a]$. We are essentially loosing the ability to incorporate state transitions and long-term rewards. If we only use MAB, we are trating every RL problem as a stationary single-state problem with immidiate rewards. 
 \end{enumerate}
     
+
+\section{Importace sampling}
+
+\begin{enumerate}
+    \item $E[R] =  0.3 * 5 + 0.25 * 10 + 0.1 * 20 = 1.5 + 2.5 + 2 = 6$
+    \item Done in code 
+    \item Done in code. We got 0.57475, close to our expected value of 0.575
+    \item The ratio $P(x) = \frac{P_R(x)}{P_S(x)}$ yields: $0\$: 1.166, 5\$ : 0.857, 10\$ : 0.833, 20\$ : 2.0 $. This means that we are twise as likely to get an outcome of 20 \$ from R and less likely to get outcome 5\$ and 10\$.
+    \item Done in code. We got 6.0167, close to the true expected value of 6.
+    \item Done in code. $\hat{E}[S'] = 0.7595$ in a iteration of our program. The new p gives us $p(0) = 1.4 , p(5) =  1.2, p(10) = 1, p(20) = 0.4$. This means that R and S' is equally likely to get a reward of 10, and that R is less likely to get a reward of 20 than S'. The new $\hat{E} = 6.0248$,  close to our previous value
+    \item Done in code  $\hat{E}[S''] = 0.7529$ in a iteration of our program. The new p gives us $p(0) = 350 , p(5) =  0.6, p(10) = 0.5, p(20) = 100$. This means that R is a lot more likely to pick values like 0 and 20, and less likely to pick senter values than s''. The new $\hat{E}$ = 6.0097, close to the original expexted value. 
+    \item The results differ heavily in the tendency to pick the outer values 0 and 20. If we get a sample of 0 or 20 this could hugely shift our estimate due to the heavy weights in p wrt. S''. We can say that S' has good coverage but low variance, and that S'' has higher coverage, but a huge variance. This can explain the differences i saw when i at a later run i got $\hat{E} = 5.41$, showing just how much the value can change. 
+\end{enumerate}
+
+
+\section{Q-learning}
+\subsection{Exercise 4}
+\begin{enumerate}
+    \item Q-learning does not rely on importance sampling because its update rule does not estimate expectations under the policy behavior. Instead it uses the max operrator over the next state actions. This makes the update target independent of the the action that was taken. Since there is no probablility-correction needed between the behaviour and target policy, importance ratios are unnessisary. 
+\end{enumerate}
 \end{document}
