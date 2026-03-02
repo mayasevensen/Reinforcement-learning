@@ -1,5 +1,8 @@
 \documentclass{article}
 \usepackage{graphicx} % Required for inserting images
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{float}
 
 \title{INF266 - Problem Set 3}
 \author{Ragnhild Klette, Maya Evensen, Halvard Håvardsrud}
@@ -37,7 +40,7 @@
 
     In the correlated case, the samples are concentrated around the diagonal, meaning the distribution is no longer uniform. Therefore, the empirical fraction inside the circle no longer corresponds to the geometric area ratio. The estimator becomes biased, which explains why $\hat{\pi} = 2.8084$ is significantly lower than $\pi$.
 
-    What we are actually estimating here is the fraction of diamater of the unit circle, that falls inside the diagonal of a unit square. Wich is $\frac{2r}{\sqrt{2}} \approx 0.70710$, close to our estimate of $0.7021$. Ragnhild er kul og Maya er rå. It is worth to mention that some points from our distribution might even fall outside the diagonal of the square. 
+    What we are actually estimating here is the fraction of diameter of the unit circle, that falls inside the diagonal of a unit square. Which is $\frac{2r}{\sqrt{2}} \approx 0.70710$, close to our estimate of $0.7021$. It is worth to mention that some points from our distribution might even fall outside the diagonal of the square. 
     
 \end{enumerate}
 
@@ -45,39 +48,137 @@
 \subsection*{Exercise 2}
 
 \begin{enumerate}
-    \item In MAB we where solving a control problem. This is because we have to learn a policy that maximizes expected cummulative reward by choosing actions. 
+    \item (*) In MAB we were solving a control problem. This is because we have to learn a policy that maximizes the expected cumulative reward by choosing actions. 
     
-    \item In MAB we are estimating the expected reward of each arm. This corresponds an action-value function, since we are estimating the value of taking an action rather than the state. In MAB there is no transition between states, thus the action value is given by $q_\pi = E[R | A = a]$.
+    \item (*) In MAB we are estimating the expected reward of each arm. This corresponds to an action-value function since we are estimating the value of taking an action rather than the state. In MAB there is no transition between states; thus the action value is given by $q_\pi = E[R | A = a]$.
 
-    \item Because we have statioanaty states in MAB, a trajectory corresponds to a sequence of arms and rewards over time. ie. $\{(A_1, R_1,), ..., (A_n, R_n)\}$. A collection of trajectories correspond to multiple independent runs of the bandit process. Each of wich will generate a different series of actions and rewards. 
+    \item (*) Because we have stationary states in MAB, a trajectory corresponds to a sequence of arms and rewards over time, i.e. $\{(A_1, R_1,), ..., (A_n, R_n)\}$. A collection of trajectories correspond to multiple independent runs of the bandit process. Each of which will generate a different series of actions and rewards. 
 
-    \item The MAB algorithms like $\epsilon$-greedy correspond to MC control. This is because they estimate action values and use them to improve the policy. The MC prediction evaluates a fixed policy, and does not change it the way we do in MAB. 
+    \item (*) The MAB algorithms like $\epsilon$-greedy correspond to MC control. This is because they estimate action values and use them to improve the policy. The MC prediction evaluates a fixed policy, and does not change it the way we do in MAB. 
     
-    \item In MAB, a MC prediction would correspond to exploiting a given or earlier learned algorithm. In this situation we effectivly just estimate the expected reward of each arm under the given policy, without doing any policy improvement. 
+    \item (*) In MAB, a MC prediction would correspond to exploiting a given or earlier learned algorithm. In this situation we effectively just estimate the expected reward of each arm under the given policy, without doing any policy improvement. 
 
-    \item Both in MAB's and in MC control, $\epsilon$ is used to ensure suffisient exploration. We set this value to ensure that we dont exploit the best policy so far too much. It gives us a better guarantee that all actions are sufficiently explored. In MC control this also means that we need to visit more state-action pairs. In both cases it controlls the relationship between exploring and exploiting. 
+    \item (*) Both in MAB's and in MC control, $\epsilon$ is used to ensure sufficient exploration. We set this value to ensure that we don't exploit the best policy so far too much. It gives us a better guarantee that all actions are sufficiently explored. In MC control this also means that we need to visit more state-action pairs. In both cases it controls the relationship between exploring and exploiting. 
     
-    \item If we reduxe a standard RL problem solved by MC to a MAB problem we will loose the ability to evaluete a state-action value $q_\pi = E = [R | S = s,  A = a]$. We are essentially loosing the ability to incorporate state transitions and long-term rewards. If we only use MAB, we are trating every RL problem as a stationary single-state problem with immidiate rewards. 
+    \item (*) If we reduce a standard RL problem solved by MC to a MAB problem we will lose the ability to evaluate a state-action value $q_\pi = E = [R | S = s,  A = a]$. We are essentially losing the ability to incorporate state transitions and long-term rewards. If we only use MAB, we are treating every RL problem as a stationary single-state problem with immediate rewards. 
 \end{enumerate}
-    
 
-\section{Importace sampling}
+
+
+\section{Importance sampling}
+\subsection*{Exercise 3}
 
 \begin{enumerate}
     \item $E[R] =  0.3 * 5 + 0.25 * 10 + 0.1 * 20 = 1.5 + 2.5 + 2 = 6$
+    
     \item Done in code 
+    
     \item Done in code. We got 0.57475, close to our expected value of 0.575
-    \item The ratio $P(x) = \frac{P_R(x)}{P_S(x)}$ yields: $0\$: 1.166, 5\$ : 0.857, 10\$ : 0.833, 20\$ : 2.0 $. This means that we are twise as likely to get an outcome of 20 \$ from R and less likely to get outcome 5\$ and 10\$.
+    
+    \item (*) The ratio $P(x) = \frac{P_R(x)}{P_S(x)}$ yields: $0\$: 1.166, 5\$ : 0.857, 10\$ : 0.833, 20\$ : 2.0 $. This means that we are twice as likely to get an outcome of 20 \$ from R and less likely to get outcome 5\$ and 10\$.
+    
     \item Done in code. We got 6.0167, close to the true expected value of 6.
-    \item Done in code. $\hat{E}[S'] = 0.7595$ in a iteration of our program. The new p gives us $p(0) = 1.4 , p(5) =  1.2, p(10) = 1, p(20) = 0.4$. This means that R and S' is equally likely to get a reward of 10, and that R is less likely to get a reward of 20 than S'. The new $\hat{E} = 6.0248$,  close to our previous value
-    \item Done in code  $\hat{E}[S''] = 0.7529$ in a iteration of our program. The new p gives us $p(0) = 350 , p(5) =  0.6, p(10) = 0.5, p(20) = 100$. This means that R is a lot more likely to pick values like 0 and 20, and less likely to pick senter values than s''. The new $\hat{E}$ = 6.0097, close to the original expexted value. 
-    \item The results differ heavily in the tendency to pick the outer values 0 and 20. If we get a sample of 0 or 20 this could hugely shift our estimate due to the heavy weights in p wrt. S''. We can say that S' has good coverage but low variance, and that S'' has higher coverage, but a huge variance. This can explain the differences i saw when i at a later run i got $\hat{E} = 5.41$, showing just how much the value can change. 
+   
+    \item Done in code. $\hat{E}[S'] = 0.7595$ in a iteration of our program. The new p gives us $p(0) = 1.4 , p(5) =  1.2, p(10) = 1, p(20) = 0.4$. This means that R and S' is equally likely to get a reward of 10, and that R is less likely to get a reward of 20 than S'. The new $\hat{E} = 6.0248$,  close to our previous value.
+    
+    \item Done in code  $\hat{E}[S''] = 0.7529$ in a iteration of our program. The new p gives us $p(0) = 350 , p(5) =  0.6, p(10) = 0.5, p(20) = 100$. This means that R is a lot more likely to pick values like 0 and 20, and less likely to pick center values than s''. The new $\hat{E}$ = 6.0097, close to the original expected value. 
+   
+    \item (*) The results differ heavily in the tendency to pick the outer values 0 and 20. If we get a sample of 0 or 20 this could hugely shift our estimate due to the heavy weights in p wrt. S''. We can say that S' has good coverage but low variance, and that S'' has higher coverage, but a huge variance. This can explain the differences i saw when in a later run i got $\hat{E} = 5.41$, showing just how much the value can change. 
+
 \end{enumerate}
+
 
 
 \section{Q-learning}
-\subsection{Exercise 4}
+\subsection*{Exercise 4}
 \begin{enumerate}
-    \item Q-learning does not rely on importance sampling because its update rule does not estimate expectations under the policy behavior. Instead it uses the max operrator over the next state actions. This makes the update target independent of the the action that was taken. Since there is no probablility-correction needed between the behaviour and target policy, importance ratios are unnessisary. 
+    \item (*) Q-learning does not rely on importance sampling because its update rule does not estimate expectations under the policy behavior. Instead it uses the max operator over the next state actions. This makes the update target independent of the the action that was taken. Since there is no probability-correction needed between the behavior and target policy, importance ratios are unnecessary.
 \end{enumerate}
+    
+
+
+\section{Report, MC and TD}
+\subsection*{Exercise 5}
+\begin{enumerate}
+    \item (Done in code). The MC state-value function mc\_eval\_V returns a mapping from each state s to the estimated expected cumulative reward obtained when starting from s and following policy $\pi$.
+    
+    \item (Done in code). The MC action-value function mc\_eval\_Q returns a mapping from each state–action pair (s,a) to the estimated expected cumulative reward obtained when starting from s, taking action a, and then following policy $\pi$.
+    
+    \item Image:
+    
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.9\textwidth]{heatmap.png}
+        \caption{Heatmap - state-value function (15,0)}
+        \label{fig:state value function plot}
+    \end{figure}
+    
+    \item (*) We can perform one-step Monte Carlo policy improvement by constructing a greedy policy 
+    $\pi_{\text{new}}(s)=\arg\max_a \hat{q}_\pi(s,a)$ using the Monte Carlo estimates obtained from the dataset. However, the resulting policy is \textit{not} guaranteed to be optimal, since the trajectories were generated by a fixed behavior policy $\pi$ and therefore do not explore all state-action pairs. As illustrated by the value heatmap, many states and actions remain unvisited, meaning that $\hat{q}_\pi$ is incomplete and the greedy policy may be suboptimal or undefined in large regions of the state space. To guarantee optimality with Monte Carlo control, the agent would need to interact with the environment using an exploring policy (e.g.\ $\epsilon$-greedy), ensuring that all state--action pairs are visited infinitely often (GLIE conditions).
+
+    \item (*) No, trajectories are not equally informative. Trajectories that explore new states and actions provide more useful information for both evaluation and improvement, while repeated trajectories along similar paths contribute little additional knowledge. Furthermore, since the dataset was generated by a fixed behavior policy, some state–action pairs were never observed, limiting the accuracy of action-value estimates and preventing guaranteed optimal improvement. Stochastic transitions also introduce variability in returns, making some trajectories noisier than others.
+
+
+    \item (*) No, we can not perform it. MC control needs exploration and we can not collect new episodes, so we can not keep improving.
+
+    \item (*) We initialize the robot with a uniform random policy, where each of the five available actions is selected with equal probability in every state. 
+    A random starting policy provides unbiased exploration of the state–action space and does not rely on prior knowledge of the terrain. Since Monte Carlo control requires sufficient exploration to accurately estimate action-values, this choice ensures that all actions have a chance to be tried, allowing the learning algorithm to gradually improve toward an optimal policy.
+
+    \item Optimal trajectory for MC control:
+        \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.8\textwidth]{best_trajectory_task_8.png}
+        \caption{Optimal trajectory for MC control}
+        \label{fig:optimal trajectory plot}
+    \end{figure}
+
+    \item (*) MC control produced a strong policy and significantly improved the returns. However, due to the finite number of training episodes, stochastic transitions, and the dependence on sufficient state–action coverage and the choice of $\epsilon$ for exploration, we cannot guarantee that the learned policy is truly optimal. It is therefore best described as near-optimal in practice.
+
+    \item Using MC control in the v2 environment (with 8 actions), learning became less stable than in v1. Within our training budget, the algorithm often did not clearly converge to a stable optimal policy. Although performance improved initially,the returns remained noisy due to continued exploration and the high variance of Monte Carlo updates.
+
+    The larger action space increases the number of state–action pairs that must be explored and estimated.Since MC control updates values only after full episodes, this makes learning more sample-inefficient and increases computational cost. In practice, v2 required more episodes and training time, and convergence was slower compared to v1.
+
+    \item (Done in code).
+
+    \item (*) Results from the learning processes of MC and SARSA(0) shown down below: 
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{sarsa_0_mc_v2.png}
+        \caption{MC vs SARSA(0)}
+        \label{fig:plot of sarsa vs mc}
+    \end{figure}
+
+    We use the smoothed average return per episode as the performance metric. 
+
+    From Figure~\ref{fig:plot of sarsa vs mc}, MC improves rapidly and stabilizes around $-80$, while SARSA(0) improves more gradually but steadily approaches similar performance. MC learns faster initially, whereas SARSA(0) exhibits more stable long-term improvement. 
+    
+    This difference arises because MC updates only at the end of episodes using full returns (higher variance), while SARSA(0) updates online via bootstrapping, leading to slower but more stable learning.
+
+    \item (Done in code).
+
+    \item (*) Results from the learning processes of SARSA(0) and SARSA(N):
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{compare_sarsa_0_n_mc.png}
+        \caption{SARSA(0) vs SARSA(N)}
+        \label{fig:plot of sarsa vs mc}
+    \end{figure}
+
+    We use the smoothed average return per episode (moving average) as the metric. From Figure~4, SARSA(0) improves steadily but slowly, reaching a similar performance level as MC only late in training. In contrast, SARSA($n$) ($n=3$) learns much faster and reaches substantially higher returns (around $-30$) after roughly $10\,000$ episodes. Overall, increasing $n$ reduces reliance on bootstrapping and propagates reward information faster, leading to quicker and better learning in our experiments, although the learning curve is initially noisier than for SARSA(0).
+
+    \item (Done in code).
+
+    \item (*) Results from Q-learning:
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{16.png}
+        \caption{Q-learning vs the rest of the algorithms}
+        \label{fig:plot of q-learning vs the rest}
+    \end{figure}
+
+    We use the smoothed average return per episode (moving average) as the metric. From Figure~5, Q-learning improves more slowly than SARSA($n$) ($n=3$), which reaches the best performance (around $-30$) much earlier. However, Q-learning eventually outperforms MC control and achieves better returns than SARSA(0), which remains the slowest to improve. Overall, SARSA($n$) learns fastest and reaches the highest returns in our experiments, while Q-learning provides a strong improvement over MC and SARSA(0) but converges more gradually.
+        
+
+\end{enumerate}
+
 \end{document}
