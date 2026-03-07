@@ -241,8 +241,9 @@ class SkyscraperEnv(gym.Env):
         if self.render_mode == "human":
             self._render_frame()
 
-        if reward >0:
-            print(observation, reward)
+        # ALOT of print statements when this is on
+        # if reward >0:
+        #     print(observation, reward)
         return observation, reward, terminated, False, info
     
     def render(self):
