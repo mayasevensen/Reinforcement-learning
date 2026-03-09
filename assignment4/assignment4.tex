@@ -3,9 +3,11 @@
 \usepackage[a4paper, margin=2.5cm]{geometry}
 \usepackage{amsmath}
 \usepackage{float}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
 
 \title{INF266 - Problem Set 4}
-\author{Ragnhild KletteSette.....GOOO, MayahiiiimayahooomayahaaamayaHAHA Evensen, Halvadadoabadiabadai Håvardsruddabbadai}
+\author{Ragnhild Klette, Maya Evensen, Halvard Håvardsrud}
 \date{\today}
 
 
@@ -91,10 +93,22 @@
 
     \item The reward function $R(s,a)$ gives the immediate expected reward after taking action $a$ in state $s$. The value function $v_\pi(s)$ gives the expected discounted sum if future rewards when starting in state s and following policy $\pi$. Therefore, $v_\pi$ includes long-term consequences, while $R$ only describes the next reward.
 
-    \item (DRAWING)
+    \item The learned MDP graph is shown below:
+    
+    \begin{center}
+    \begin{tikzpicture}[>=Stealth, node distance=4.5cm]
+    
+    \node[draw, circle] (home) {home};
+    \node[draw, circle, right of=home] (uni) {uni};
+    \node[draw, circle, right of=uni] (term) {terminal};
+    
+    \draw[->] (home) -- node[above] {travel, $0$} (uni);
+    \draw[->] (uni) -- node[above] {take exam, $0.75$} (term);
+    
+    \end{tikzpicture}
+    \end{center}
 
     
-
     \item Using the Bellman equations for the learned model:
     $$
     v_{\pi}(\text{uni}) = R(\text{uni},\text{take exam}) = 0.75
@@ -111,7 +125,37 @@
 
     These are identical to the TD values, but differ from the MC estimate for home, which was 0. The reason is that MC uses the single observed return from the only trajectory starting at home, while TD and DP use the transition from home to uni together with the value of uni. Therefore, TD and DP propagate the value of uni back home, whereas MC depends directly on the sampled return in the observed trajectory.
 
+    \item Using both the real and simulated trajectories, the state uni is visited 16 times in total. The observed exam rewards are 12 ones and 4 zeros, so: $v_{\pi}^{MC}(\text{uni})=\frac{12}{16}=0.75.$
+    The state $\text{home}$ is visited $4$ times in total: once in the real data and three times in the simulated data. The corresponding returns are $0,\gamma,\gamma,0$.
+
+    Therefore: 
     
+    $$
+    v_{\pi}^{MC}(\text{home})=\frac{0+\gamma+\gamma+0}{4}=\frac{2\gamma}{4}=0.5\gamma
+    $$
+    
+    \item For uni, taking the action 'take exam' terminated the episode, so the TD estimate is the expected immediate reward: $v_{\pi}^{TD}(\text{uni})=0.75$
+
+    For home, the observed transition is still:  $\text{home}\rightarrow\text{uni}$ with reward $0$. Therefore, TD bootstraps from the value of uni: 
+
+    $$
+    v_{\pi}^{TD}(\text{home}) = 0 + \gamma v_{\pi}^{TD}(\text{uni}) = 0.75\gamma
+    $$
+
+    This gives us $v_{\pi}^{TD}(\text{uni})=0.75$ and $v_{\pi}^{TD}(\text{home})=0.75\gamma$.
+
+    \item (*) The value of uni did not change for either MC or TD. In both the real and simulated data, the empirical reward distribution at uni remained the same: 75\% of the exams produced reward 1 and 25\% produced reward 0. Therefore: $v_\pi (uni) = 0.75$ for both methods.
+
+    The value of home changes for MC but not for TD. Previously, MC estimated $v_\pi (home) = 0$ because only one trajectory starting from home was observed, and that trajectory produces total return 0. After adding simulated data, more trajectories starting from home were available, including some with return $\gamma$. As a result, the MC estimate increased to: 
+    $$
+    v_\pi^{MC}(home) = 0.5\gamma
+    $$
+    The TD estimate remained:
+    $$
+    v_\pi^{TD}(home) = 0.75\gamma
+    $$
+    because TD bootstraps from the value of uni, which did not change. Therefore, simulations changed the MC estimate by providing more complete sampled returns from home, while the TD estimate stayed the same since it already relied on the transition to uni and the estiated value of uni.
+
     
 \end{enumerate}
 
@@ -124,7 +168,7 @@
     Finally, driving environments typically have continuous state and action spaces, while MCTS is more naturally suited to discrete decision problems. For these reasons, the use of MCTS may be beneficial only if the environment can be simulated efficiently and the decision space can be suitably discretized.
 \end{enumerate}
 
-
+\newpage
 \section*{Part II - Report}
 \subsection*{Exercise 4}
 
@@ -199,7 +243,7 @@
         \label{tab:planning_results}
     \end{table}
 
-    We evaluated Dyna-Q with different numbers of planning simulations per real interaction step, using $n\in{1,5,10,30,50,100}$. For each setting we ran multiple seeds and compared the average return over training episodes.
+    (*) We evaluated Dyna-Q with different numbers of planning simulations per real interaction step, using $n\in{1,5,10,30,50,100}$. For each setting we ran multiple seeds and compared the average return over training episodes.
     The results show that increasing the number of planning steps significantly improves sample efficiency. When n=0, the algorithm reduces to standard Q-learning and learns much more slowly. As $n$ increases, the agent is able to exploit the learned model to perform additional updates from simulated experience, leading to faster discovery of successful trajectories and earlier convergence.
     Beyond a certain point, increasing $n$ further provides smaller gains, suggesting diminishing returns from additional planning.
 
@@ -207,7 +251,4 @@
     
 \end{enumerate}
 
-
-
-\subsection*{AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHh}
 \end{document}
