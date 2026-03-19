@@ -18,5 +18,65 @@
 \section*{Part I - Problems}
 \subsection*{Exercise 1}
 
+\[
+\mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma)
+\]
+
+\paragraph{States}
+\[
+\mathcal{S} = \{ s_0, s_1, s_2, s_3, s_4, s_5, s_6, s_7 \}
+\]
+\[
+\begin{aligned}
+s_0&:\text{empty},\quad
+s_1:\text{full},\quad
+s_2:\text{sugared},\quad
+s_3:\text{salted},\\
+s_4&:\text{sugar sampling},\quad
+s_5:\text{salt sampling},\\
+s_6&:\text{baked sugary},\quad
+s_7:\text{baked salty}
+\end{aligned}
+\]
+
+\paragraph{Actions}
+\[
+\begin{aligned}
+\mathcal{A}(s_0)&=\{\text{wait}, \text{prep}\},\\
+\mathcal{A}(s_1)&=\{\text{wait}, \text{sugar}, \text{salt}\},\\
+\mathcal{A}(s_2)&=\mathcal{A}(s_3)=\{\text{taste}, \text{cook}, \text{restart}\},\\
+\mathcal{A}(s_4)&=\mathcal{A}(s_5)=\{\text{cook}, \text{return}\},\\
+\mathcal{A}(s_6)&=\mathcal{A}(s_7)=\emptyset
+\end{aligned}
+\]
+
+\paragraph{Transitions (deterministic)}
+\[
+P(s'|s,a)=1 \text{ for:}
+\]
+\[
+\begin{aligned}
+&(s_0,\text{wait})\to s_0,\ (s_0,\text{prep})\to s_1\\
+&(s_1,\text{sugar})\to s_2,\ (s_1,\text{salt})\to s_3\\
+&(s_2,\text{taste})\to s_4,\ (s_2,\text{cook})\to s_6,\ (s_2,\text{restart})\to s_1\\
+&(s_3,\text{taste})\to s_5,\ (s_3,\text{cook})\to s_7,\ (s_3,\text{restart})\to s_1\\
+&(s_4,\text{cook})\to s_6,\ (s_4,\text{return})\to s_2\\
+&(s_5,\text{cook})\to s_7,\ (s_5,\text{return})\to s_3
+\end{aligned}
+\]
+
+\paragraph{Reward}
+\[
+R(s,a,s') =
+\begin{cases}
++10 & s' = s_6\\
+-10 & s' = s_7\\
+0 & \text{otherwise}
+\end{cases}
+\]
+
+\[
+\gamma \in [0,1]
+\]
 
 \end{document}
