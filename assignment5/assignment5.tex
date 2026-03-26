@@ -101,7 +101,98 @@ R(s,a,s') =
 
 \subsection*{Exercise 4}
 \begin{textbf}
-    
-\end{textbf}
+    Yes, an optimal stochastic policy exists. 
+    However, since the environment is fully deterministic and there is a unique optimal trajectory leading to reward +10,
+    any randomness that assigns non-zero probability to suboptimal actions (e.g., adding salt) will reduce the expected return.
+Thus, the optimal stochastic policy is actually just deterministic, meaning the agent always chooses the best action with probability 1 and never chooses any other actions.
+    \[
+\pi(a \mid s) =
+\begin{cases}
+1 & \text{if } a = a^*(s), \\
+0 & \text{otherwise}.
+\end{cases}
+\]
 
+In particular, the agent always chooses actions that lead to the sugary cookies and avoids all actions leading to the salty outcome.
+\end{textbf}
+\subsection*{Exercise 5}
+
+We define the MDP as
+\[
+\mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma).
+\]
+
+\paragraph{States}
+To retain the Markov property, we include the latent variable $\sigma \in \{\text{sugar}, \text{salt}\}$:
+\[
+\mathcal{S} = \{
+s_0, s_1, (s_2,\sigma), s_4, s_5, s_6, s_7
+\},
+\]
+where
+\[
+\begin{aligned}
+s_0 &: \text{empty bowl}, \quad
+s_1 : \text{full bowl}, \\
+(s_2,\sigma) &: \text{enriched bowl with ingredient } \sigma, \\
+s_4 &: \text{sugar sampling}, \quad
+s_5 : \text{salt sampling}, \\
+s_6 &: \text{baked sugary cookies}, \quad
+s_7 : \text{baked salty cookies}.
+\end{aligned}
+\]
+
+\paragraph{Actions}
+\[
+\begin{aligned}
+\mathcal{A}(s_0) &= \{\text{wait}, \text{prepare dough}\}, \\
+\mathcal{A}(s_1) &= \{\text{wait}, \text{add ingredient}\}, \\
+\mathcal{A}((s_2,\sigma)) &= \{\text{taste}, \text{cook}, \text{restart}\}, \\
+\mathcal{A}(s_4) &= \mathcal{A}(s_5) = \{\text{cook}, \text{return}\}, \\
+\mathcal{A}(s_6) &= \mathcal{A}(s_7) = \emptyset.
+\end{aligned}
+\]
+
+\paragraph{Transitions}
+\[
+\begin{aligned}
+&(s_0,\text{wait}) \to s_0, \quad (s_0,\text{prepare dough}) \to s_1, \\
+&(s_1,\text{add ingredient}) \to 
+\begin{cases}
+(s_2,\text{sugar}) & \text{with prob } 0.5, \\
+(s_2,\text{salt}) & \text{with prob } 0.5,
+\end{cases} \\
+&((s_2,\sigma),\text{taste}) \to 
+\begin{cases}
+s_4 & \text{if } \sigma=\text{sugar}, \\
+s_5 & \text{if } \sigma=\text{salt},
+\end{cases} \\
+&((s_2,\sigma),\text{cook}) \to 
+\begin{cases}
+s_6 & \text{if } \sigma=\text{sugar}, \\
+s_7 & \text{if } \sigma=\text{salt},
+\end{cases} \\
+&((s_2,\sigma),\text{restart}) \to 
+\begin{cases}
+(s_2,\text{sugar}) & \text{with prob } 0.5, \\
+(s_2,\text{salt}) & \text{with prob } 0.5,
+\end{cases} \\
+&(s_4,\text{cook}) \to s_6, \quad (s_4,\text{return}) \to (s_2,\text{sugar}), \\
+&(s_5,\text{cook}) \to s_7, \quad (s_5,\text{return}) \to (s_2,\text{salt}).
+\end{aligned}
+\]
+
+\paragraph{Reward function}
+\[
+R(s,a,s') =
+\begin{cases}
++10 & \text{if } s' = s_6, \\
+-10 & \text{if } s' = s_7, \\
+0 & \text{otherwise}.
+\end{cases}
+\]
+
+\paragraph{Remark}
+
+\subsection*{Exercise 6}
 \end{document}
