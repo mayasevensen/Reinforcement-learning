@@ -16,8 +16,9 @@
 \maketitle
 
 \section*{Part I - Problems}
-\subsection*{Exercise 1}
-
+\subsection*{Exercise 1 - Stocastic policies}
+\begin{enumerate}
+    \item 
 \[
 \mathcal{M} = (\mathcal{S}, \mathcal{A}, P, R, \gamma)
 \]
@@ -79,14 +80,14 @@ R(s,a,s') =
 \gamma \in [0,1]
 \]
 \newpage
-\subsection*{Exercise 2}
+\item
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{diagram.png}
     \caption{Backup diagram for the MDP.}
 \end{figure}
 
-\subsection*{Exercise 3}
+\item
 \begin{textbf}
     yes, we can define an optimal deterministic policy for this MDP. The optimal policy would be:
     \begin{enumerate}
@@ -99,7 +100,7 @@ R(s,a,s') =
     This policy is simply the shortest path to the highest reward.
 \end{textbf}
 
-\subsection*{Exercise 4}
+\item
 \begin{textbf}
     Yes, an optimal stochastic policy exists. 
     However, since the environment is fully deterministic and there is a unique optimal trajectory leading to reward +10,
@@ -115,7 +116,7 @@ Thus, the optimal stochastic policy is actually just deterministic, meaning the 
 
 In particular, the agent always chooses actions that lead to the sugary cookies and avoids all actions leading to the salty outcome.
 \end{textbf}
-\subsection*{Exercise 5}
+\item
 
 We define the MDP as
 \[
@@ -193,20 +194,20 @@ R(s,a,s') =
 \]
 
 \newpage
-\subsection*{Exercise 6}
+\item 
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{diagram2.png}
     \caption{Backup diagram for the new MDP.}
 \end{figure}
 
-\subsubsection*{Exercise 7}
+\item 
 No, an optimal deterministic policy does not exist.
 The agent cannot observe the latent variable $\sigma \in \{\text{sugar}, \text{salt}\}$, so in the enriched bowl state it cannot distinguish between the two underlying cases. A deterministic policy must choose the same action regardless of $\sigma$.
 However, the optimal behavior depends on information: the agent should first \emph{taste} to reveal $\sigma$, and then choose \emph{cook} if $\sigma=\text{sugar}$ or \emph{restart} if $\sigma=\text{salt}$. This requires conditioning actions on information that is not available in the current observation.
 Thus, no deterministic memoryless policy can achieve optimal performance. An optimal policy must either use memory (history-dependent) or be stochastic.
 
-\subsection*{Exercise 8}
+\item
 Yes, an optimal stochastic policy exists.
 
 Due to partial observability, the agent must act under uncertainty in the enriched bowl state. The optimal strategy is to first gather information and then act optimally based on that information.
@@ -228,13 +229,24 @@ After returning to the enriched bowl from salt sampling, the agent again follows
 
 Thus, the agent repeatedly tastes until it identifies sugar, and only then chooses to cook, ensuring the maximal expected reward.
 
-\subsection*{Exercise 9}
+\item
 The key difference between the original MDP and the new MDP is that the new MDP introduces partial observability through the latent variable $\sigma$ that determines whether the ingredient added is sugar or salt. 
 In the original MDP, the agent has full observability and can directly choose actions based on the current state.
 In contrast, in the new MDP, the agent cannot directly observe $\sigma$ and must rely on actions (like tasting) to gain information about it.
 This means that an optimal policy may require memory or stochasticity, as the agent needs to condition its actions based on the information gathered.
 
+\item
+Yes, a natural modification to the original MDP is to make the latent variable $\sigma$ observable, but only after taking a specific action (e.g., tasting). 
+This creates a scenario where the agent must first take an exploratory action to gain information about the state of the environment before it can make an informed decision.
+This would restore full observability while still requiring the agent to gather information. 
+Alternativly we can augment the state space to incude the history of actions take, allowing the agent to infer the latent variable from past actions and observations. 
+In both cases we remove partial observability and simplify the policy design. 
 
+\end{enumerate}
 
+\subsection*{Exercise 2 - Continuous actions}
+\begin{enumerate}
+    \item 
+\end{enumerate}
 
 \end{document}
