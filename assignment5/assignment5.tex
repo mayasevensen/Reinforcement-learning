@@ -192,7 +192,20 @@ R(s,a,s') =
 \end{cases}
 \]
 
-\paragraph{Remark}
-
+\newpage
 \subsection*{Exercise 6}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{diagram2.png}
+    \caption{Backup diagram for the new MDP.}
+\end{figure}
+
+\subsubsection*{Exercise 7}
+No, an optimal deterministic policy does not exist.
+The agent cannot observe the latent variable $\sigma \in \{\text{sugar}, \text{salt}\}$, so in the enriched bowl state it cannot distinguish between the two underlying cases. A deterministic policy must therefore choose the same action regardless of $\sigma$.
+However, the optimal behavior depends on information: the agent should first \emph{taste} to reveal $\sigma$, and then choose \emph{cook} if $\sigma=\text{sugar}$ or \emph{restart} if $\sigma=\text{salt}$. This requires conditioning actions on information that is not available in the current observation.
+Thus, no deterministic memoryless policy can achieve optimal performance. An optimal policy must either use memory (history-dependent) or be stochastic.
+
+
+
 \end{document}
