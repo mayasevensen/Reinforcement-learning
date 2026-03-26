@@ -78,11 +78,30 @@ R(s,a,s') =
 \[
 \gamma \in [0,1]
 \]
-
-\subsection{Exercise 2}
+\newpage
+\subsection*{Exercise 2}
 \begin{figure}[h]
     \centering
     \includegraphics[width=1\textwidth]{diagram.png}
     \caption{Backup diagram for the MDP.}
 \end{figure}
+
+\subsection*{Exercise 3}
+\begin{textbf}
+    yes, we can define an optimal deterministic policy for this MDP. The optimal policy would be:
+    \begin{enumerate}
+        \item In state $s_0$, take action \text{prep} to move to state $s_1$.
+        \item  In state $s_1$, take action \text{sugar} to move to state $s_2$.
+        \item In state $s_2$, take action \text{cook} to move to state $s_6$ and receive a reward of +10.
+    \end{enumerate}
+    This policy is optimal because it leads to the highest possible reward of +10 by reaching state $s_6$.
+    Any deviation from this policy would either lead to a lower reward (e.g., going to state $s_7$ with a reward of -10), a delayed reward (like taking action \text{taste} in $s_2$ leading to state $s_4$), or no reward at all (e.g., waiting in state $s_0$ or taking the restart action in states $s_2$ or $s_3$). Therefore, the optimal deterministic policy is to always choose the actions that lead to state $s_6$.
+    This policy is simply the shortest path to the highest reward.
+\end{textbf}
+
+\subsection*{Exercise 4}
+\begin{textbf}
+    
+\end{textbf}
+
 \end{document}
