@@ -228,4 +228,13 @@ After returning to the enriched bowl from salt sampling, the agent again follows
 
 Thus, the agent repeatedly tastes until it identifies sugar, and only then chooses to cook, ensuring the maximal expected reward.
 
+\subsection*{Exercise 9}
+The key difference between the original MDP and the new MDP is that the new MDP introduces partial observability through the latent variable $\sigma$ that determines whether the ingredient added is sugar or salt. 
+In the original MDP, the agent has full observability and can directly choose actions based on the current state.
+In contrast, in the new MDP, the agent cannot directly observe $\sigma$ and must rely on actions (like tasting) to gain information about it.
+This means that an optimal policy may require memory or stochasticity, as the agent needs to condition its actions based on the information gathered.
+
+
+
+
 \end{document}
