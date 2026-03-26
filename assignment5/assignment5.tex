@@ -246,7 +246,19 @@ In both cases we remove partial observability and simplify the policy design.
 
 \subsection*{Exercise 2 - Continuous actions}
 \begin{enumerate}
-    \item 
+    \item  
+    The policy $\pi(a \mid s)$ is parametrized using a neural network that takes the state $s$ as input and outputs a vector of real values, one for each action:
+\[
+z(s) = (z_1(s), \dots, z_n(s)).
+\]
+
+These outputs are then converted into a probability distribution over actions using the softmax function:
+\[
+\pi(a_i \mid s) = \frac{\exp(z_i(s))}{\sum_{j=1}^n \exp(z_j(s))}.
+\]
+
+This ensures that the policy defines a valid probability distribution over the discrete action space.
+    
 \end{enumerate}
 
 \end{document}
