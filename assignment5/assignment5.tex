@@ -293,12 +293,19 @@ This means that we also assume symmetry in the deviations and that the action sp
     In the update rule, the quantity $(R^{(t)} - \hat{E}[R])$ represents how much better or worse the received reward is compared to the average reward.
     This is analogous to the baseline used in policy gradient methods.
     \item This term serves as a baseline to calculate wether a given reward is better or worse than the average reward. 
-    If the value $(R^{(t)} - \hat{E}[R])$ is positive, it indicates that the action is better than average, and that we shoold increase the probability of taking that action. 
+    If the value $(R^{(t)} - \hat{E}[R])$ is positive, it indicates that the action is better than average, and that we should increase the probability of taking that action. 
     Contrary if the value is negative it indicates that the action is worse than average, and that we should decrease the probability of taking that action in the future. 
     The increase or decrease scaled by the learning rate $\alpha$ shows how much we adjust the policy based on the observed reward compared to the baseline.
 \end{enumerate}
 
-
+\subsection*{Exercise 4 - Actor-critic methods}
+\begin{enumerate}
+    \item In actor-critic methods, the critic correspond to policy evaluation and actor correspond to policy improvement.
+    The critic estimates the value function $v^\pi(s)$ or $q^\pi(a,s)$, for the current policy. This is analogous to policy evaluation, where we assess how good the current policy is.
+    The actor updates the policy parameters in the direction suggested by the critic. This is analogous to policy improvement, where the policy is adjusted to favor better actions.
+    Thus, the critic provides feedback about the quality of actions, while the actor uses this feedback to improve the policy.
+    In this sence an actor and a cretic can be assosiated with policy improvement and policy evaluation, respectively.
+\end{enumerate}
 
 
 \end{document}
