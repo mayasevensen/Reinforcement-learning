@@ -287,7 +287,18 @@ To ensures that $\sigma(s) > 0$ we can exponentiate the output for the variance:
 This means that we also assume symmetry in the deviations and that the action space is unbounded. We also assume that the distribution is unimodal, meaning that there is a single peak leading to a single optimal action for each state.
 \end{enumerate}
 
-\subsection*{Ecxercise 3}
+\subsection*{Exercise 3 - MAB and Baselines}
+\begin{enumerate}
+    \item The term $\hat{E}[R]$ plays the role as the baseline.
+    In the update rule, the quantity $(R^{(t)} - \hat{E}[R])$ represents how much better or worse the received reward is compared to the average reward.
+    This is analogous to the baseline used in policy gradient methods.
+    \item This term serves as a baseline to calculate wether a given reward is better or worse than the average reward. 
+    If the value $(R^{(t)} - \hat{E}[R])$ is positive, it indicates that the action is better than average, and that we shoold increase the probability of taking that action. 
+    Contrary if the value is negative it indicates that the action is worse than average, and that we should decrease the probability of taking that action in the future. 
+    The increase or decrease scaled by the learning rate $\alpha$ shows how much we adjust the policy based on the observed reward compared to the baseline.
+\end{enumerate}
+
+
 
 
 \end{document}
