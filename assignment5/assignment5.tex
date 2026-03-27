@@ -2,6 +2,7 @@
 \usepackage{graphicx} % Required for inserting images
 \usepackage[a4paper, margin=2.5cm]{geometry}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{float}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning}
@@ -259,6 +260,34 @@ These outputs are then converted into a probability distribution over actions us
 
 This ensures that the policy defines a valid probability distribution over the discrete action space.
     
+\item For a continuous action space $\mathcal{A} = \mathbb{R}$, we can model the policy as a gaussian (normal) distribution.
+\[
+\pi(a \mid s) = \mathcal{N}(a \mid \mu(s), \sigma^2(s)).
+\]
+
+The mean $\mu(s)$ and variance $\sigma^2(s)$ are given by a neural network as functions of the state $s$.
+
+This allows the policy to output a continuous distribution over actions while remaining differentiable and suitable for gradient-based optimization.
+
+\item As previosly stated we would need mean $\mu(s)$ and variance $\sigma^2(s)$ to model the policy for a gaussian distribution.
+\item To define a policy over $\mathbb{R}$, we parametrize a Gaussian distribution whose parameters are given by a neural network.
+
+The network takes the state $s$ as input and outputs two values:
+\[
+\mu(s), \quad \log \sigma(s).
+\]
+
+These define the policy as stated in task 2.
+To ensures that $\sigma(s) > 0$ we can exponentiate the output for the variance:
+\[
+\sigma(s) = \exp(\log \sigma(s)).
+\]
+
+\item The choise of a gaussian distribution assumes that actions are continous and can be represented by a single mean and variance.
+This means that we also assume symmetry in the deviations and that the action space is unbounded. We also assume that the distribution is unimodal, meaning that there is a single peak leading to a single optimal action for each state.
 \end{enumerate}
+
+\subsection*{Ecxercise 3}
+
 
 \end{document}
