@@ -18,7 +18,8 @@ class CookieDisasterEnv(gym.Env):
         self.scale_x = self.window_size[0] /  self.width
         self.scale_y = self.window_size[1] / self.height
 
-        image_path = os.path.join('cookiedisaster', 'envs', 'cookie.png')
+        current_dir = os.path.dirname(__file__)
+        image_path = os.path.join(current_dir, 'cookie.png')
         self.cookie_image = pygame.image.load(image_path)
         self.cookie_image = pygame.transform.scale( self.cookie_image, (20, 20))
         self.target_image = pygame.transform.scale( self.cookie_image, (35, 35))
