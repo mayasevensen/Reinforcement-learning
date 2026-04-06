@@ -38,7 +38,6 @@ gamma = 0.99
 epsilon = 0.1
 
 ACTIONS = [0, 1, 2]
-
 def choose_action(obs):
     if np.random.rand() < epsilon:
         return np.random.choice(ACTIONS)
