@@ -312,5 +312,11 @@ This means that we also assume symmetry in the deviations and that the action sp
 \begin{enumerate}
     \item This task is a continous action problem, as the action space is $\mathcal{A} = \mathbb{R}$. There is also no terminal state, as the agent receives a reward at every time step and the environment does not have a natural endpoint, making this a continuing task.
     
+    We include features such as distance to the cookie and squared velocity to capture:
+    \begin{itemize}
+        \item distance to target
+        \item penalty for high speeds
+        \item interactions between motion and control
+    \end{itemize}
 \end{enumerate}
 \end{document}
