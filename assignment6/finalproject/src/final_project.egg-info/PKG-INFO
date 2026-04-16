@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: final_project
+Version: 0.1.0
+Summary: A reinforcement learning framework with RL agents and environments.
+Author: Morten Blørstad
+Author-email: your.email@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: jax
+Requires-Dist: gymnax==0.0.8
+Requires-Dist: tyro
+Requires-Dist: flax
+Requires-Dist: chex
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
