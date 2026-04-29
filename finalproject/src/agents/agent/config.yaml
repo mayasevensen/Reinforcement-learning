@@ -1,0 +1,29 @@
+# add your agent configuration here
+# Example:  
+# weights: "path/to/weights.pth"
+# epsilon: 0.1
+# gamma: 0.99
+# learning_rate: 0.001
+# buffer_size: 10000
+# batch_size: 32
+# number_of_mlp_layers: 2
+# hidden_units: 128
+# action_space: 4
+
+hidden_dim: 64          # smaller = faster, still effective
+learning_rate: 0.001    # higher lr = learns faster
+gamma: 0.99
+batch_size: 128         # larger batches = fewer updates needed
+ 
+epsilon_start: 1.0
+epsilon_end: 0.05
+epsilon_decay: 0.998    # faster decay for fewer episodes
+ 
+buffer_size: 20000      # smaller buffer = less memory, faster sampling
+min_buffer_size: 200    # start training sooner
+ 
+target_update_freq: 100
+train_every: 4          # only train every 4 steps (big speedup)
+ 
+training: false
+weights_dir: "src/agents/agent/weights"

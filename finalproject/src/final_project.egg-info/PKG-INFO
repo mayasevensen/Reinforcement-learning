@@ -1,0 +1,235 @@
+Metadata-Version: 2.1
+Name: final_project
+Version: 0.1.0
+Summary: A reinforcement learning framework with RL agents and environments.
+Author: Morten Blørstad
+Author-email: your.email@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+Requires-Dist: jax
+Requires-Dist: gymnax==0.0.8
+Requires-Dist: tyro
+Requires-Dist: flax
+Requires-Dist: chex
+
+# Final Project
+
+## Getting Started
+To install the package, run the following command in the root directory of the project:
+
+```
+pip install -e .
+```
+
+To verify your installation, you can run a match between two agents:
+
+```
+python src/compete/compete.py src/agents/baseline/ src/agents/baseline/
+```
+
+you can also run a match between two agents of your choice:
+
+```
+python src/compete/compete.py <path to agent 1> <path to agent 2>
+```
+
+add --output replay.json to save the replay of the match
+
+```
+python src/compete/compete.py <path to agent 1> <path to agent 2> --output replay.json
+```
+
+To visualise the saved replay, run the following command in the root directory of the project:
+
+```
+python src/visualiser/visualiser.py replay.json
+```
+
+## Environment
+
+To play the game yourself, run the following command in the root directory of the project:
+
+```
+python src/visualiser/play_collector.py <seed>
+```
+
+Example:
+```
+python src/visualiser/play_collector.py 0
+```
+
+Example of how to run the environment:
+```python
+from environments.collector.params import EnvParams
+from environments.collector.wrappers import CollectorGymEnv
+
+env = CollectorGymEnv(numpy_output=True) # numpy_output=True for numpy arrays, False for JAX arrays
+env_params = EnvParams()
+obs, info = env.reset()
+while not env.done:
+    action = self.env.action_space.sample()
+    opponent_action = self.env.action_space.sample()
+    actions = {"player_0": action, "player_1": opponent_action}
+    obs, reward, terminated, truncated, info = env.step(actions)
+    if terminated or truncated:
+        break
+env.close()
+``` 
+
+To record a game wrap the environment in in RecordEpisode:
+```python
+from environments.collector.params import EnvParams
+from environments.collector.wrappers import CollectorGymEnv, RecordEpisode
+env = CollectorGymEnv(numpy_output=True)
+env_params = EnvParams()
+save_dir = "path/to/save"  
+env = RecordEpisode(env, save_dir=save_dir)
+obs, info = env.reset()
+agent = Agent(config) 
+agent.load() # if you have pre-trained weights
+while not env.done:
+    action = agent.act(obs["player_0"])
+    opponent_action = self.env.action_space.sample()
+    actions = {"player_0": action, "player_1": opponent_action}
+    obs, reward, terminated, truncated, info = env.step(actions)
+    if terminated or truncated:
+        break
+env.close()
+```
+Saves the episode in the save_dir as episode_id.json
+
+To visualise a recorded game, run the following command in the root directory of the project:
+```
+python src/visualiser/visualiser.py <path to episode_id.json>
+```
+
+### Observations
+The observation is a dictionary with:
+```python
+{
+    "player_0": obs_0,
+    "player_1": obs_1
+}
+```
+where `obs_0` and `obs_1` are the observations for the two players. 
+```python
+# T is the number of teams (default is 2)
+# W, H are the width and height of the map
+obs_0 = {
+    'units': {
+        'position': Array(T, 2)
+        },
+    'map_features': {
+        # 2D array representing the board
+        # 0: empty
+        # 1: obstacle
+        # 2: item
+        'tile_type': Array(W, H) 
+        },
+    'team_points': Array(T),
+    'items_on_map': int,
+    'steps': int
+    }
+```
+A players observation is always from the perspective of them being player_0. Meaning a player always sees the game from the perspective of them being `player_0` and the other player as `player_1`.
+
+You might want to preprocess the observation and do feature engineering before feeding it to your agent.
+
+### Actions
+Actions are discrete and are represented as integers. The action space is a Discrete(4) space. The actions are as follows:
+- 0: Move up
+- 1: Move right
+- 2: Move down
+- 3: Move left
+
+### Rewards
+Rewards from the environment are given based on the following rules:
+- Collecting an item: +1
+- Hitting a wall or obstacle: -2
+- otherwise: -1
+
+Please feel free to do any reward shaping you see fit.
+
+
+## Agent
+Your goal is to create a reinforcement learning agent that competes in the Collector environment.
+
+Create your agent in:
+
+```
+src/
+â””â”€â”€ 
+    agents/
+    â””â”€â”€ agent/
+        â”œâ”€â”€ __init__.py
+        â”œâ”€â”€ agent.py        ðŸ‘ˆ Your agent goes here!
+        â””â”€â”€ config.yaml     ðŸ‘ˆ Your agentâ€™s configuration
+```
+
+### agent.py
+You must implement a class Agent in agents/agent/agent.py.
+Your class should inherit from BaseAgent and implement two methods:
+
+```python
+class Agent(BaseAgent):
+    def act(self, observation: EnvState) -> int:
+    """Return the next action given an observation."""
+
+    def load(self) -> None:
+        """Load any pre-trained weights if needed using the path from config.yaml."""
+        #torch example
+        # load_path = self.config.weights_dir # src/agents/your_agent/weights
+
+        # self.network.load_state_dict(torch.load(os.path.join(load_path, "weights.pth")))
+        # if self.config.training:
+        #     self.network.train()
+        # else:
+        #     self.network.eval()
+```
+
+### config.yaml
+You must provide a configuration file in agents/agent/config.yaml.
+This file should any hyperparameters or settings that your agent needs to run.
+
+Example:
+```yaml
+  learning_rate: 0.001
+  batch_size: 32
+  epsilon: 0.1
+  gamma: 0.99
+  weights_dir: "path/to/weights.pth"
+```
+The config is passed to your agent as a SimpleNamespace. So you can access the values like this:
+```python
+class Agent(BaseAgent):
+    def __init__(self, config):
+        self.lr = config.learning_rate
+        self.batch_size = config.batch_size
+        self.epsilon = config.epsilon
+        self.gamma = config.gamma
+        self.weights_path = config.weights_path
+```
+
+### Random and Baseline Agent
+We provide two agents, a random agent and baseline agent. These can be found in `src/agents/random/agent.py` and  `src/agents/baseline/agent.py`, respectively. The baseline agent is a simple rule-based agent that combines a self-avoiding walk with a greedy item collection strategy + an $\epsilon$ randomness.
+
+Your goal is to create an agent that can beat these agents. When you have trained your agent, you can test it against the agents by running:
+
+```
+python src/compete/compete.py src/agents/your_agent/ src/agents/random/ --output replay_random.json
+python src/compete/compete.py src/agents/your_agent/ src/agents/baseline/ --output replay_baseline.json
+```
+and visualise the replay with:
+```
+python src/visualiser/visualiser.py replay_random.json
+python src/visualiser/visualiser.py replay_baseline.json
+```
+
+### Leaderboard and Tournament
+You send your agent to compete against other agents and take part into the final tournament. To send in your agent upload your agent at http://158.37.65.35/. The leaderboard will be updated with the results of the tournament.
+
+## Bugs and Issues
+If you find any bugs or issues, please report them in the discord channel to let everyone know and we will fix them as soon as possible.
