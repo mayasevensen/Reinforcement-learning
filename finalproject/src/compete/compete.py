@@ -1,3 +1,10 @@
+import warnings
+warnings.filterwarnings("ignore")
+import os
+os.environ["PYTHONWARNINGS"] = "ignore"
+
+
+
 import importlib.util
 import sys
 import os
