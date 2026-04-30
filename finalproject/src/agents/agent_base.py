@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Union
 from environments.collector.state import EnvState
 from types import SimpleNamespace
+
 class BaseAgent(ABC):
     def __init__(self,config: SimpleNamespace):
         """
