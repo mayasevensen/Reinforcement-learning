@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: final_project
 Version: 0.1.0
 Summary: A reinforcement learning framework with RL agents and environments.
@@ -14,6 +14,14 @@ Requires-Dist: gymnax==0.0.8
 Requires-Dist: tyro
 Requires-Dist: flax
 Requires-Dist: chex
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Final Project
 
