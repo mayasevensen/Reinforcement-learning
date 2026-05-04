@@ -1,0 +1,23 @@
+# PPO Agent Configuration
+
+# --- Network ---
+hidden_dim: 128
+
+# --- PPO core hyperparameters (from paper, Table 3) ---
+learning_rate: 0.0003      # 3e-4 as in paper
+gamma: 0.99                # discount factor
+gae_lambda: 0.95           # GAE lambda (paper Table 3)
+clip_epsilon: 0.2          # clipping parameter (best in paper Table 1)
+ppo_epochs: 4              # gradient epochs per rollout (paper uses 10;
+                           # 4 is safer for this small env to avoid overfitting)
+minibatch_size: 64         # minibatch size per SGD step
+vf_coef: 0.5               # value loss coefficient c1 (Eq. 9)
+ent_coef: 0.01             # entropy bonus coefficient c2 (Eq. 9)
+max_grad_norm: 0.5         # gradient clipping
+
+# --- Rollout ---
+rollout_len: 512           # steps collected before each PPO update
+
+# --- Inference / eval ---
+training: false
+weights_dir: "weights_ppo"
