@@ -22,8 +22,8 @@ batch_size: 128
 
 # --- Exploration (training only) ---
 epsilon_start: 1.0
-epsilon_end: 0.05
-epsilon_decay: 0.9985   # slightly slower decay -> more exploration over 4000 episodes
+epsilon_end: 0.07
+epsilon_decay: 0.9995   # slightly slower decay -> more exploration over 4000 episodes
 
 # --- Replay buffer ---
 buffer_size: 50000
