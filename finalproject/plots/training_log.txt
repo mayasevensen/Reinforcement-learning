@@ -1,0 +1,14 @@
+[log] writing training log to C:\Users\somme\OneDrive - University of Bergen\Uib\Master\Inf266\Reinforcement-learning\finalproject\plots\training_log.txt
+No weights found at weights\weights.pth -- starting fresh.
+[init] all opponents loaded: passive, random, baseline, bfs
+Starting training. device=cpu, epsilon=1.000, hidden_dim=128, num_episodes=5000
+Phases: 0-300 passive | 300-800 random | 800-1800 baseline | 1800-3500 BFS | 3500-5000 BFS+selfplay
+Ep    50 [passive ] opp=passive  | avg_reward=-1220.3 | avg_score=10.56 | eps=0.928 | buf=50000 | dshape=0.188
+Ep   100 [passive ] opp=passive  | avg_reward=-1205.7 | avg_score=14.90 | eps=0.861 | buf=50000 | dshape=0.175
+Ep   150 [passive ] opp=passive  | avg_reward=-1175.1 | avg_score=23.80 | eps=0.798 | buf=50000 | dshape=0.163
+  [eval ep 200] vs baseline: 31.1-60.4 wr=0% | vs random: 36.7-11.7 wr=100% | vs bfs: 31.0-160.1 wr=0%
+  [eval] new best checkpoint (score=-0.135, baseline_wr=0%, bfs_margin=-129.1)
+Ep   200 [passive ] opp=passive  | avg_reward=-1152.8 | avg_score=31.48 | eps=0.741 | buf=50000 | dshape=0.150
+Ep   250 [passive ] opp=passive  | avg_reward=-1126.4 | avg_score=40.44 | eps=0.687 | buf=50000 | dshape=0.138
+Ep   300 [passive ] opp=passive  | avg_reward=-1103.0 | avg_score=47.52 | eps=0.637 | buf=50000 | dshape=0.125
+Ep   350 [random  ] opp=random   | avg_reward=-1097.9 | avg_score=49.34 | eps=0.591 | buf=50000 | dshape=0.113

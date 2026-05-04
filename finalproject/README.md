@@ -214,5 +214,8 @@ python src/visualiser/visualiser.py replay_baseline.json
 ### Leaderboard and Tournament
 You send your agent to compete against other agents and take part into the final tournament. To send in your agent upload your agent at http://158.37.65.35/. The leaderboard will be updated with the results of the tournament.
 
+### Our token:
+OcH_YazQEr_ZEnQZpcD1K4X7fhxH5W9LS_AoBjzPPBk
+
 ## Bugs and Issues
 If you find any bugs or issues, please report them in the discord channel to let everyone know and we will fix them as soon as possible.
