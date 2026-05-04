@@ -217,5 +217,19 @@ You send your agent to compete against other agents and take part into the final
 ### Our token:
 OcH_YazQEr_ZEnQZpcD1K4X7fhxH5W9LS_AoBjzPPBk
 
+#### Train agent from scratch:
+1. Delete old weights
+rm src/agents/agent/weights/weights.pth
+
+2. Retrain with new agent (the smarter feature engineering)
+python src/train.py
+
+3. Then compete
+python src/compete/compete.py src/agents/agent/ src/agents/random/ --output replay_random.json
+python src/compete/compete.py src/agents/agent/ src/agents/baseline/ --output replay_baseline.json
+
+4. Visualise
+python src/visualiser/visualiser.py replay_baseline.json
+
 ## Bugs and Issues
 If you find any bugs or issues, please report them in the discord channel to let everyone know and we will fix them as soon as possible.

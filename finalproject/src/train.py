@@ -106,8 +106,8 @@ env_params = EnvParams()
 # ---------------------------------------------------------------------------
 NUM_EPISODES  = 5000
 MAX_STEPS     = 1000
-MIN_TRAIN_STEPS = 300
-MAX_TRAIN_STEPS = 1000
+MIN_TRAIN_STEPS = 200
+MAX_TRAIN_STEPS = 600
 SAVE_EVERY    = 500
 PRINT_EVERY   = 50
 EVAL_EVERY    = 200
@@ -303,8 +303,9 @@ def evaluate_against(agent, opponent, env, n=10):
     my_scores, opp_scores, wins = [], [], 0
     for _ in range(n):
         obs, info = env.reset(options=dict(params=EnvParams()))
-        agent.reset_episode()
         episode_max_steps = np.random.randint(MIN_TRAIN_STEPS, MAX_TRAIN_STEPS + 1)
+        agent.reset_episode()
+        
         done, steps = False, 0
         while not done and steps < episode_max_steps:
             a = agent.act(obs["player_0"])
@@ -353,12 +354,14 @@ for episode in range(NUM_EPISODES):
 
     obs, info = env.reset(options=dict(params=env_params))
     agent.reset_episode()
+    episode_max_steps = np.random.randint(MIN_TRAIN_STEPS, MAX_TRAIN_STEPS + 1)  # ADD THIS
+
 
     total_reward = 0.0
     done  = False
     steps = 0
 
-    while not done and steps < MAX_STEPS:
+    while not done and steps < episode_max_steps:
         action     = agent.act(obs["player_0"])
         opp_action = opponent.act(obs["player_1"])
         actions    = {"player_0": action, "player_1": opp_action}

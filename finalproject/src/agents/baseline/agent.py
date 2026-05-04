@@ -81,13 +81,3 @@ class Agent(BaseAgent):
             return np.random.randint(self.action_space)  # no good moves, explore randomly
 
         return np.argmin(manhattan_to_item)
-
-        
-        
-
-   
-
-
-
-        
-        
