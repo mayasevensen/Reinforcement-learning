@@ -106,6 +106,8 @@ env_params = EnvParams()
 # ---------------------------------------------------------------------------
 NUM_EPISODES  = 5000
 MAX_STEPS     = 1000
+MIN_TRAIN_STEPS = 300
+MAX_TRAIN_STEPS = 1000
 SAVE_EVERY    = 500
 PRINT_EVERY   = 50
 EVAL_EVERY    = 200
@@ -302,8 +304,9 @@ def evaluate_against(agent, opponent, env, n=10):
     for _ in range(n):
         obs, info = env.reset(options=dict(params=EnvParams()))
         agent.reset_episode()
+        episode_max_steps = np.random.randint(MIN_TRAIN_STEPS, MAX_TRAIN_STEPS + 1)
         done, steps = False, 0
-        while not done and steps < MAX_STEPS:
+        while not done and steps < episode_max_steps:
             a = agent.act(obs["player_0"])
             o = opponent.act(obs["player_1"])
             obs, _, terminated, truncated, info = env.step({"player_0": a, "player_1": o})
@@ -390,7 +393,24 @@ for episode in range(NUM_EPISODES):
             selfplay_pool.pop(0)
         print(f"  [selfplay] snapshot taken at ep {episode+1} "
               f"(pool size = {len(selfplay_pool)})")
-
+    # ------------------------------------------------------------------
+    # Periodic print
+    # ------------------------------------------------------------------
+    if (episode + 1) % PRINT_EVERY == 0:
+        avg_r = np.mean(episode_rewards[-PRINT_EVERY:])
+        avg_s = np.mean(episode_scores[-PRINT_EVERY:])
+        phase = (
+            "passive"  if episode < 300  else
+            "random"   if episode < 800  else
+            "baseline" if episode < 1800 else
+            "bfs"      if episode < 3500 else
+            "bfs+self"
+        )
+        print(f"Ep {episode+1:5d} [{phase:8s}] opp={opp_name:8s} | "
+              f"avg_reward={avg_r:7.1f} | avg_score={avg_s:.2f} | "
+              f"eps={agent.epsilon:.3f} | buf={len(agent.replay_buffer)} | "
+              f"dshape={dshape_w:.3f}")
+        
     # ------------------------------------------------------------------
     # Periodic evaluation
     # ------------------------------------------------------------------
@@ -412,23 +432,6 @@ for episode in range(NUM_EPISODES):
             print(f"  [eval] new best checkpoint (score={score:.3f}, "
                   f"baseline_wr={wr_b:.0%}, bfs_margin={my_bfs-opp_bfs:.1f})")
 
-    # ------------------------------------------------------------------
-    # Periodic print
-    # ------------------------------------------------------------------
-    if (episode + 1) % PRINT_EVERY == 0:
-        avg_r = np.mean(episode_rewards[-PRINT_EVERY:])
-        avg_s = np.mean(episode_scores[-PRINT_EVERY:])
-        phase = (
-            "passive"  if episode < 300  else
-            "random"   if episode < 800  else
-            "baseline" if episode < 1800 else
-            "bfs"      if episode < 3500 else
-            "bfs+self"
-        )
-        print(f"Ep {episode+1:5d} [{phase:8s}] opp={opp_name:8s} | "
-              f"avg_reward={avg_r:7.1f} | avg_score={avg_s:.2f} | "
-              f"eps={agent.epsilon:.3f} | buf={len(agent.replay_buffer)} | "
-              f"dshape={dshape_w:.3f}")
 
     # ------------------------------------------------------------------
     # Periodic save (latest weights)
