@@ -377,7 +377,7 @@ print(f"Starting CNN training. device={agent.device}, "
       f"epsilon={agent.epsilon:.3f}, hidden_dim={agent.hidden_dim}, "
       f"num_episodes={NUM_EPISODES}")
 print("Phases: 0-90 passive | 90-210 random | 210-720 random+baseline | "
-      f"720-1500 baseline+BFS | 1500-2400 +selfplay | 2400-{NUM_EPISODES} tournament-mix")
+      "720-1500 baseline+BFS | 1500-2400 +selfplay | 2400-3000 tournament-mix")
 
 for episode in range(NUM_EPISODES):
     opponent, opp_name = pick_opponent(episode)

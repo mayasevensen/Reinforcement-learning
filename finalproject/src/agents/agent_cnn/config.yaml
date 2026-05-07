@@ -1,0 +1,41 @@
+# CNN DQN agent configuration -- small + fast variant.
+
+# --- Network ---
+# Hidden dim feeds the dueling heads. 128 is plenty given the CNN
+# already does the heavy lifting on the spatial input.
+hidden_dim: 128
+
+# --- Learning ---
+learning_rate: 0.0003
+gamma: 0.99
+batch_size: 64
+
+# --- Exploration (training only) ---
+# Linear decay from epsilon_start to epsilon_end over `epsilon_decay_steps`
+# environment steps stored in the buffer. With ~500 steps/episode and 5000
+# episodes that's ~2.5M total steps, so 400k decay reaches epsilon_end at
+# roughly episode 800 -- right when the baseline phase starts.
+epsilon_start: 1.0
+epsilon_end: 0.05
+# With ~500 steps/ep and 3000 episodes = ~1.5M total steps.
+# 200k decay steps hits epsilon_end around episode 400 -- baseline phase start.
+epsilon_decay_steps: 2000000
+
+# --- Replay buffer ---
+# Reduced for CPU: less RAM pressure and faster sampling.
+buffer_size: 20000
+min_buffer_size: 2000
+
+# --- Target network: soft (Polyak) update ---
+# Applied every train_step. tau=0.005 means the target lags the online
+# net by ~200 steps' worth of EMA -- smoother than a hard copy.
+tau: 0.005
+
+# --- Training cadence ---
+# Run a gradient update every N env steps. 8 is appropriate for CPU-only
+# training -- still ~300K updates over 3000 episodes, plenty for this env.
+train_every: 8
+
+# --- Inference / eval ---
+training: false
+weights_dir: "weights"
