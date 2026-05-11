@@ -1,71 +1,324 @@
 """
-DQN agent for the Collector environment.
+CNN-based Dueling Double DQN agent for the Collector environment.
 
-Improvements over the previous version:
-  - Dueling DQN head (separate V(s) and A(s,a) streams).
-  - Huber loss instead of MSE for more stable Q-learning.
-  - BFS distance to nearest reachable item (handles obstacles, unlike Manhattan).
-  - "Opponent closer to my target" feature -- info baseline cannot act on.
-  - Cleaner episode-boundary handling for the replay buffer.
-  - Optional opponent-aware reward shaping is done in train.py, not here,
-    so this file stays usable for both training and inference.
+Architecture
+  - Strided CNN backbone (16x16 -> 8x8 -> 4x4) feeding dueling
+    value/advantage heads.
+  - Input is a 6-frame stack of 4 spatial channels
+    (obstacles, items, my position, opponent position) plus a 10-dim
+    vector of normalised scalars including a BFS-suggested next action
+    toward the nearest reachable item.
+
+Training
+  - Double DQN target with Polyak (soft) updates of the target net.
+  - Huber (SmoothL1) loss with gradient clipping at 1.0.
+  - Pre-allocated numpy replay buffer for fast sampling.
+  - Epsilon-greedy exploration with per-step linear decay.
+
+Public interface
+  - act(obs) / store(next_obs, reward, done) / train_step()
+  - reset_episode() / end_episode()
+  - save() / load()
 """
 
 import os
 import random
+from collections import deque
+from types import SimpleNamespace
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from collections import deque
-from types import SimpleNamespace
 
 from agents.agent_base import BaseAgent
 from environments.collector.state import EnvState
 
-import warnings
-warnings.filterwarnings("ignore")
-os.environ["PYTHONWARNINGS"] = "ignore"
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+GRID_H = 16
+GRID_W = 16
+N_ACTIONS = 4
+
+# Global feature vector layout (10 dims total):
+#   [my_score, opp_score, items_on_map, steps, opp_dist, opp_closer]
+#   + 4-dim one-hot of BFS-suggested next action toward nearest item
+GLOBAL_DIM = 10
+
+# Frame stacking: how many recent frames of (me, opp) positions to keep.
+# Static channels (obstacles, items) are not stacked -- they barely change
+# and the global feature `items_on_map` already tracks item depletion.
+#
+# Stacked grid layout (N_CHANNELS = 2 + 2*FRAME_STACK):
+#   ch 0          : obstacles (binary)
+#   ch 1          : items (binary)
+#   ch 2..2+K-1   : my position over last K frames (newest first)
+#   ch 2+K..end   : opponent position over last K frames (newest first)
+FRAME_STACK = 3
+N_CHANNELS  = 2 + 2 * FRAME_STACK
 
 
 # ---------------------------------------------------------------------------
-# Network: Dueling DQN
+# BFS navigation helper
 # ---------------------------------------------------------------------------
-class QNetwork(nn.Module):
-    """
-    Dueling architecture: shared trunk -> two heads (value + advantage).
-    Q(s, a) = V(s) + (A(s, a) - mean_a A(s, a))
+# Action conventions used throughout this file:
+#   0=up    (dy=-1, dx= 0)
+#   1=right (dy= 0, dx=+1)
+#   2=down  (dy=+1, dx= 0)
+#   3=left  (dy= 0, dx=-1)
+_BFS_DELTAS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-    Why dueling: in this env, many states have similar value regardless of
-    action (e.g. when no item is adjacent and you're moving toward one).
-    Separating value from advantage lets the network learn V(s) from every
-    transition, even ones where the action choice barely matters.
+BFS_EXPLORE_PROB = 0.4  # share of random actions that follow the BFS hint
+
+def bfs_next_action(tile_map, start):
+    """
+    BFS from `start` to the nearest reachable item on `tile_map`.
+    Returns a one-hot float32 array of length 4 indicating the first step
+    on the shortest path (up/right/down/left). Returns all-zeros if no
+    item is reachable or `start` is invalid.
+
+    Treats tile_type == 1 as an obstacle and tile_type == 2 as an item.
+    """
+    H, W = tile_map.shape
+    sy, sx = int(start[0]), int(start[1])
+    one_hot = np.zeros(4, dtype=np.float32)
+
+    if not (0 <= sy < H and 0 <= sx < W) or tile_map[sy, sx] == 1:
+        return one_hot
+
+    parent       = {(sy, sx): None}  # for reconstructing the path
+    first_action = {}                 # (y, x) -> first action taken from start
+    queue        = deque([(sy, sx)])
+
+    while queue:
+        y, x = queue.popleft()
+
+        # Goal test: an item that isn't the start cell.
+        if tile_map[y, x] == 2 and (y, x) != (sy, sx):
+            cur = (y, x)
+            while parent[cur] != (sy, sx):
+                cur = parent[cur]
+            one_hot[first_action[cur]] = 1.0
+            return one_hot
+
+        for a, (dy, dx) in enumerate(_BFS_DELTAS):
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < H and 0 <= nx < W and (ny, nx) not in parent \
+                    and tile_map[ny, nx] != 1:
+                parent[(ny, nx)] = (y, x)
+                # Inherit the first-action label from the parent, except
+                # at the start where the first action *is* `a`.
+                first_action[(ny, nx)] = a if (y, x) == (sy, sx) \
+                                           else first_action[(y, x)]
+                queue.append((ny, nx))
+
+    return one_hot  # no reachable item
+
+
+# ---------------------------------------------------------------------------
+# Observation preprocessing
+# ---------------------------------------------------------------------------
+def _raw_features(obs):
+    """
+    Extract the four single-frame spatial channels and the 10-dim global
+    feature vector from a raw env observation.
+
+    Returns:
+      ch_obs     : (H, W) float32  -- obstacle mask
+      ch_items   : (H, W) float32  -- item mask
+      ch_me      : (H, W) float32  -- my position one-hot
+      ch_opp     : (H, W) float32  -- opponent position one-hot
+      global_vec : (GLOBAL_DIM,) float32
+    """
+    raw_map = obs['map_features']['tile_type']
+    H, W    = raw_map.shape
+    my_pos  = obs['units']['position'][0]
+    opp_pos = obs['units']['position'][1]
+
+    ch_obs   = (raw_map == 1).astype(np.float32)
+    ch_items = (raw_map == 2).astype(np.float32)
+
+    ch_me = np.zeros((H, W), dtype=np.float32)
+    my_y, my_x = int(my_pos[0]), int(my_pos[1])
+    if 0 <= my_y < H and 0 <= my_x < W:
+        ch_me[my_y, my_x] = 1.0
+
+    ch_opp = np.zeros((H, W), dtype=np.float32)
+    op_y, op_x = int(opp_pos[0]), int(opp_pos[1])
+    if 0 <= op_y < H and 0 <= op_x < W:
+        ch_opp[op_y, op_x] = 1.0
+
+    # Global features, all normalised so they live in roughly [0, 1].
+    diag       = float(H + W)
+    team_pts   = obs['team_points'].astype(np.float32).flatten()
+    my_score   = float(team_pts[0]) / 50.0
+    opp_score  = float(team_pts[1]) / 50.0
+    items_norm = float(obs['items_on_map'].item()) / 50.0
+    steps_norm = float(obs['steps'].item()) / 1000.0
+    opp_dist   = float(np.abs(opp_pos - my_pos).sum()) / diag
+
+    item_locs = np.argwhere(raw_map == 2)
+    if len(item_locs) > 0:
+        my_d  = float(np.abs(item_locs - my_pos).sum(axis=1).min())
+        opp_d = float(np.abs(item_locs - opp_pos).sum(axis=1).min())
+        opp_closer = 1.0 if opp_d < my_d else 0.0
+    else:
+        opp_closer = 0.0
+
+    bfs_action = bfs_next_action(raw_map, my_pos)
+
+    global_vec = np.concatenate([
+        np.array([my_score, opp_score, items_norm, steps_norm,
+                  opp_dist, opp_closer], dtype=np.float32),
+        bfs_action,
+    ])
+    return ch_obs, ch_items, ch_me, ch_opp, global_vec
+
+
+class FrameStacker:
+    """
+    Maintains a rolling K-frame history of (me, opp) position channels
+    and assembles the stacked observation:
+        [obstacles, items,
+         me_t, me_{t-1}, ..., me_{t-K+1},
+         opp_t, opp_{t-1}, ..., opp_{t-K+1}]
+
+    Cold start is handled by repeating the first frame K times, so the
+    network always sees a valid K-frame stack from the very first step.
+
+    Each "view" needs its own stacker — the agent uses one for itself,
+    and self-play opponents create their own.
     """
 
-    def __init__(self, input_dim, hidden_dim, output_dim=4):
+    def __init__(self, k=FRAME_STACK):
+        self.k = k
+        self._me_hist  = None  # list of (H, W) arrays, newest first
+        self._opp_hist = None
+
+    def reset(self):
+        # Called between episodes so history doesn't leak across resets.
+        self._me_hist  = None
+        self._opp_hist = None
+
+    def step(self, obs):
+        """Process one observation and advance the history. Returns {grid, global}."""
+        ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
+
+        if self._me_hist is None:
+            # Cold start: pad history with copies of the first frame.
+            self._me_hist  = [ch_me]  * self.k
+            self._opp_hist = [ch_opp] * self.k
+        else:
+            self._me_hist.insert(0,  ch_me)
+            self._opp_hist.insert(0, ch_opp)
+            if len(self._me_hist)  > self.k: self._me_hist.pop()
+            if len(self._opp_hist) > self.k: self._opp_hist.pop()
+
+        grid = np.stack(
+            [ch_obs, ch_items] + self._me_hist + self._opp_hist,
+            axis=0,
+        ).astype(np.float32, copy=False)
+        return {"grid": grid, "global": global_vec}
+
+    def peek(self, obs):
+        """
+        Same return value as step() but without mutating the history.
+        Used inside store() so the next call to act() sees the right history.
+        """
+        ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
+
+        if self._me_hist is None:
+            me_hist  = [ch_me]  * self.k
+            opp_hist = [ch_opp] * self.k
+        else:
+            me_hist  = [ch_me]  + self._me_hist[:self.k - 1]
+            opp_hist = [ch_opp] + self._opp_hist[:self.k - 1]
+
+        grid = np.stack(
+            [ch_obs, ch_items] + me_hist + opp_hist,
+            axis=0,
+        ).astype(np.float32, copy=False)
+        return {"grid": grid, "global": global_vec}
+
+
+def preprocess_obs(obs):
+    """
+    Stateless single-frame preprocessing: a stacked observation in which
+    the K position-history slots are filled by repeating the current frame.
+    Useful for callers that don't want to maintain their own FrameStacker.
+    """
+    ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
+    grid = np.stack(
+        [ch_obs, ch_items] + [ch_me] * FRAME_STACK + [ch_opp] * FRAME_STACK,
+        axis=0,
+    ).astype(np.float32, copy=False)
+    return {"grid": grid, "global": global_vec}
+
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+class CNNQNetwork(nn.Module):
+    """
+    Strided CNN backbone + dueling value/advantage heads.
+
+    Backbone (input is N_CHANNELS x 16 x 16):
+      Conv 3x3 stride 1, pad 1: N_CHANNELS -> 32   (16x16)
+      Conv 3x3 stride 2, pad 1: 32         -> 64   ( 8x 8)
+      Conv 3x3 stride 2, pad 1: 64         -> 64   ( 4x 4)
+    The final 64*4*4 = 1024-dim feature is concatenated with the global
+    vector and fed to two MLPs that produce V(s) and A(s, ·). Q(s, a)
+    is reassembled as V + (A - mean(A)).
+    """
+
+    def __init__(self, global_dim, hidden_dim=128, output_dim=N_ACTIONS):
         super().__init__()
-        self.trunk = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(N_CHANNELS, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
         )
+
+        cnn_out_dim = 64 * 4 * 4  # for a 16x16 input
+
+        self.merger = nn.Sequential(
+            nn.Linear(cnn_out_dim + global_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+        )
+
         self.value_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(hidden_dim // 2, 1),
         )
+
         self.advantage_head = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Linear(hidden_dim // 2, output_dim),
         )
 
-    def forward(self, x):
-        h = self.trunk(x)
-        v = self.value_head(h)                    # (B, 1)
-        a = self.advantage_head(h)                # (B, 4)
-        # Subtract mean advantage to make V/A identifiable.
+    def forward(self, grid, global_vec):
+        """
+        grid       : (B, N_CHANNELS, H, W)
+        global_vec : (B, GLOBAL_DIM)
+        returns    : (B, N_ACTIONS) Q-values
+        """
+        h = self.cnn(grid).flatten(start_dim=1)
+        h = torch.cat([h, global_vec], dim=1)
+        h = self.merger(h)
+
+        v = self.value_head(h)
+        a = self.advantage_head(h)
+        # Subtracting mean(A) removes the V/A gauge ambiguity and stabilises training.
         return v + (a - a.mean(dim=1, keepdim=True))
 
 
@@ -73,161 +326,52 @@ class QNetwork(nn.Module):
 # Replay buffer
 # ---------------------------------------------------------------------------
 class ReplayBuffer:
-    def __init__(self, capacity):
-        self.buffer = deque(maxlen=capacity)
+    """
+    Pre-allocated circular buffer. Storing into fixed numpy arrays avoids
+    per-step Python allocations, and sampling is just fancy indexing.
+    """
+
+    def __init__(self, capacity, grid_shape, global_dim):
+        self.capacity = capacity
+        self.size = 0
+        self.idx = 0
+
+        C, H, W = grid_shape
+        self.grids       = np.zeros((capacity, C, H, W),    dtype=np.float32)
+        self.globals_    = np.zeros((capacity, global_dim), dtype=np.float32)
+        self.actions     = np.zeros((capacity,),            dtype=np.int64)
+        self.rewards     = np.zeros((capacity,),            dtype=np.float32)
+        self.next_grids  = np.zeros((capacity, C, H, W),    dtype=np.float32)
+        self.next_globs  = np.zeros((capacity, global_dim), dtype=np.float32)
+        self.dones       = np.zeros((capacity,),            dtype=np.float32)
 
     def push(self, state, action, reward, next_state, done):
-        self.buffer.append((state, action, reward, next_state, done))
+        i = self.idx
+        self.grids[i] = state["grid"]
+        self.globals_[i]   = state["global"]
+        self.actions[i]    = action
+        self.rewards[i]    = reward
+        self.next_grids[i] = next_state["grid"]
+        self.next_globs[i] = next_state["global"]
+        self.dones[i]      = float(done)
+
+        self.idx  = (self.idx + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
 
     def sample(self, batch_size):
-        batch = random.sample(self.buffer, batch_size)
-        states, actions, rewards, next_states, dones = zip(*batch)
+        idxs = np.random.randint(0, self.size, size=batch_size)
         return (
-            np.array(states, dtype=np.float32),
-            np.array(actions),
-            np.array(rewards, dtype=np.float32),
-            np.array(next_states, dtype=np.float32),
-            np.array(dones, dtype=np.float32),
+            self.grids[idxs],
+            self.globals_[idxs],
+            self.actions[idxs],
+            self.rewards[idxs],
+            self.next_grids[idxs],
+            self.next_globs[idxs],
+            self.dones[idxs],
         )
 
     def __len__(self):
-        return len(self.buffer)
-
-
-# ---------------------------------------------------------------------------
-# Feature engineering
-# ---------------------------------------------------------------------------
-def bfs_distances(tile_map, start):
-    """
-    BFS from `start` over walkable tiles (tile_type != 1).
-    Returns an int array of shape (H, W) where unreachable cells are -1.
-    Cheap on 16x16.
-    """
-    H, W = tile_map.shape
-    dist = -np.ones((H, W), dtype=np.int32)
-    sy, sx = int(start[0]), int(start[1])
-    if not (0 <= sy < H and 0 <= sx < W) or tile_map[sy, sx] == 1:
-        return dist
-    dist[sy, sx] = 0
-    q = deque([(sy, sx)])
-    while q:
-        y, x = q.popleft()
-        d = dist[y, x]
-        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-            ny, nx = y + dy, x + dx
-            if 0 <= ny < H and 0 <= nx < W and dist[ny, nx] == -1 and tile_map[ny, nx] != 1:
-                dist[ny, nx] = d + 1
-                q.append((ny, nx))
-    return dist
-
-
-def preprocess_obs(obs):
-    """
-    Build a fixed-size feature vector. Every component is in roughly [-1, 1].
-
-    Layout (total 56 dims):
-        my_pos_norm                   2
-        opp_pos_norm                  2
-        rel_opp                       2
-        direction_to_nearest          2
-        dist_to_nearest               1
-        item_features (top 5)        15   (dx, dy, dist) per item
-        local 5x5 obstacles + items  25
-        team_points (mine, opp)       2
-        items_on_map                  1
-        steps_norm                    1
-        opp_close_flag                1
-        opp_closer_to_my_target       1   <-- key competitive feature
-        bfs_dist_to_nearest_item      1   <-- handles obstacles
-    """
-    raw_map = obs['map_features']['tile_type']
-    my_pos = obs['units']['position'][0].astype(np.float32)
-    opp_pos = obs['units']['position'][1].astype(np.float32)
-    H, W = raw_map.shape
-    diag = float(W + H)
-
-    my_pos_norm = my_pos / np.array([H, W], dtype=np.float32)
-    opp_pos_norm = opp_pos / np.array([H, W], dtype=np.float32)
-    rel_opp = (opp_pos - my_pos) / np.array([H, W], dtype=np.float32)
-
-    item_locs = np.argwhere(raw_map == 2).astype(np.float32)
-
-    # Top-5 nearest items (by Manhattan, fast)
-    item_features = np.zeros(5 * 3, dtype=np.float32)
-    nearest = None
-    if len(item_locs) > 0:
-        diffs = item_locs - my_pos
-        dists = np.abs(diffs).sum(axis=1)
-        order = np.argsort(dists)[:5]
-        for i, idx in enumerate(order):
-            item_features[i * 3] = diffs[idx][0] / H
-            item_features[i * 3 + 1] = diffs[idx][1] / W
-            item_features[i * 3 + 2] = dists[idx] / diag
-        nearest = item_locs[order[0]]
-
-    # Direction + Manhattan dist to nearest
-    if nearest is not None:
-        dvec = nearest - my_pos
-        dist_to_nearest_man = float(np.abs(dvec).sum() / diag)
-        norm = np.abs(dvec).sum() + 1e-8
-        direction = (dvec / norm).astype(np.float32)
-    else:
-        direction = np.zeros(2, dtype=np.float32)
-        dist_to_nearest_man = 1.0
-
-    # Local 5x5 window (out-of-bounds treated as obstacle)
-    radius = 2
-    local = np.full((2 * radius + 1, 2 * radius + 1), 0.5, dtype=np.float32)
-    my_y, my_x = int(my_pos[0]), int(my_pos[1])
-    for di in range(-radius, radius + 1):
-        for dj in range(-radius, radius + 1):
-            ni, nj = my_y + di, my_x + dj
-            if 0 <= ni < H and 0 <= nj < W:
-                local[di + radius, dj + radius] = raw_map[ni, nj] / 2.0
-
-    items_on_map = np.array([obs['items_on_map'].item() / 50.0], dtype=np.float32)
-    steps_norm = np.array([obs['steps'].item() / 1000.0], dtype=np.float32)
-    team_points = obs['team_points'].astype(np.float32).flatten() / 50.0
-
-    opp_dist_man = float(np.abs(opp_pos - my_pos).sum())
-    opp_close = np.array([1.0 if opp_dist_man <= 2 else 0.0], dtype=np.float32)
-
-    # Competitive feature: is opponent closer (Manhattan) to my nearest item?
-    if nearest is not None:
-        my_d = float(np.abs(nearest - my_pos).sum())
-        opp_d = float(np.abs(nearest - opp_pos).sum())
-        opp_closer = np.array([1.0 if opp_d < my_d else 0.0], dtype=np.float32)
-    else:
-        opp_closer = np.array([0.0], dtype=np.float32)
-
-    # BFS distance to nearest reachable item (true graph distance)
-    if len(item_locs) > 0:
-        dmap = bfs_distances(raw_map, my_pos)
-        item_locs_int = item_locs.astype(np.int32)
-        ds = dmap[item_locs_int[:, 0], item_locs_int[:, 1]]
-        reachable = ds[ds >= 0]
-        if reachable.size > 0:
-            bfs_d = np.array([reachable.min() / diag], dtype=np.float32)
-        else:
-            bfs_d = np.array([1.0], dtype=np.float32)
-    else:
-        bfs_d = np.array([1.0], dtype=np.float32)
-
-    return np.concatenate([
-        my_pos_norm,                              # 2
-        opp_pos_norm,                             # 2
-        rel_opp,                                  # 2
-        direction,                                # 2
-        np.array([dist_to_nearest_man], dtype=np.float32),  # 1
-        item_features,                            # 15
-        local.flatten(),                          # 25
-        team_points,                              # 2
-        items_on_map,                             # 1
-        steps_norm,                               # 1
-        opp_close,                                # 1
-        opp_closer,                               # 1
-        bfs_d,                                    # 1
-    ])                                            # total: 56
+        return self.size
 
 
 # ---------------------------------------------------------------------------
@@ -239,47 +383,74 @@ class Agent(BaseAgent):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.epsilon = getattr(config, 'epsilon_start', 1.0)
-        self.epsilon_end = getattr(config, 'epsilon_end', 0.05)
-        self.epsilon_decay = getattr(config, 'epsilon_decay', 0.998)
-        self.gamma = getattr(config, 'gamma', 0.99)
-        self.batch_size = getattr(config, 'batch_size', 128)
-        self.target_update_freq = getattr(config, 'target_update_freq', 500)
-        self.training = getattr(config, 'training', False)
-        self.hidden_dim = getattr(config, 'hidden_dim', 128)
-        self.lr = getattr(config, 'learning_rate', 0.0005)
+        # Exploration: epsilon decays linearly from start to end over
+        # epsilon_decay_steps env steps (driven from store()).
+        self.epsilon             = getattr(config, 'epsilon_start',       1.0)
+        self.epsilon_end         = getattr(config, 'epsilon_end',         0.05)
+        self.epsilon_decay_steps = getattr(config, 'epsilon_decay_steps', 400_000)
+        self._epsilon_start_value = self.epsilon
 
-        self.q_net = None
-        self.target_net = None
-        self.optimizer = None
-        self.input_dim = None
+        # Optimisation
+        self.gamma      = getattr(config, 'gamma',         0.99)
+        self.batch_size = getattr(config, 'batch_size',    128)
+        self.lr         = getattr(config, 'learning_rate', 3e-4)
+        self.tau        = getattr(config, 'tau',           0.005)  # Polyak coefficient
+        self.training   = getattr(config, 'training',      False)
+        self.hidden_dim = getattr(config, 'hidden_dim',    128)
 
-        self.replay_buffer = ReplayBuffer(getattr(config, 'buffer_size', 50000))
-        self.min_buffer_size = getattr(config, 'min_buffer_size', 1000)
+        # Replay buffer
+        self.buffer_size     = getattr(config, 'buffer_size',     50000)
+        self.min_buffer_size = getattr(config, 'min_buffer_size', 5000)
 
-        self._step_count = 0
-        self._last_state = None
+        # Networks are built lazily on first act() so load() can queue a
+        # weights file before the network exists.
+        self.q_net         = None
+        self.target_net    = None
+        self.optimizer     = None
+        self.replay_buffer = None
+
+        self._step_count  = 0    # env steps stored
+        self._train_steps = 0    # gradient updates done
+        self._last_state  = None
         self._last_action = None
 
-    def _build_networks(self, input_dim):
-        self.input_dim = input_dim
-        self.q_net = QNetwork(input_dim, self.hidden_dim).to(self.device)
-        self.target_net = QNetwork(input_dim, self.hidden_dim).to(self.device)
+        self._stacker = FrameStacker(k=FRAME_STACK)
+
+    # -- Network setup --------------------------------------------------------
+    def _build_networks(self):
+        self.q_net      = CNNQNetwork(GLOBAL_DIM, self.hidden_dim).to(self.device)
+        self.target_net = CNNQNetwork(GLOBAL_DIM, self.hidden_dim).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.target_net.eval()
-        self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.lr)
+        self.optimizer  = optim.Adam(self.q_net.parameters(), lr=self.lr)
+
+        if self.training and self.replay_buffer is None:
+            self.replay_buffer = ReplayBuffer(
+                capacity=self.buffer_size,
+                grid_shape=(N_CHANNELS, GRID_H, GRID_W),
+                global_dim=GLOBAL_DIM,
+            )
 
     def reset_episode(self):
-        """Call at the start of every episode to prevent buffer transitions
-        from crossing episode boundaries."""
-        self._last_state = None
+        self._last_state  = None
         self._last_action = None
+        self._stacker.reset()
 
+    def end_episode(self):
+        # Epsilon decays per env step (in store()), so this is just a hook.
+        self.reset_episode()
+
+    def _state_to_tensors(self, state):
+        grid = torch.from_numpy(state["grid"]).unsqueeze(0).to(self.device)
+        gvec = torch.from_numpy(state["global"]).unsqueeze(0).to(self.device)
+        return grid, gvec
+
+    # -- Action selection -----------------------------------------------------
     def act(self, observation: EnvState) -> int:
-        state = preprocess_obs(observation)
+        state = self._stacker.step(observation)
 
         if self.q_net is None:
-            self._build_networks(len(state))
+            self._build_networks()
             if hasattr(self, '_pending_load_path'):
                 try:
                     sd = torch.load(self._pending_load_path, map_location=self.device)
@@ -287,82 +458,115 @@ class Agent(BaseAgent):
                     self.target_net.load_state_dict(self.q_net.state_dict())
                     if not self.training:
                         self.q_net.eval()
-                    print("Weights loaded!")
+                    print("CNN weights loaded!")
                 except Exception as e:
-                    # Architecture mismatch (e.g. loading old non-dueling weights):
-                    # start fresh rather than crash.
-                    print(f"Could not load weights ({e}); starting fresh.")
+                    print(f"Could not load CNN weights ({e}); starting fresh.")
                 del self._pending_load_path
 
         if self.training and random.random() < self.epsilon:
-            action = random.randint(0, 3)
+            # Exploration: BFS-biased random action.
+            # The last 4 entries of `global` are a one-hot of the BFS-suggested
+            # next step toward the nearest reachable item. We follow it with
+            # probability BFS_EXPLORE_PROB; otherwise pick uniformly. If BFS
+            # has no suggestion (all-zero one-hot), fall back to uniform.
+            bfs_one_hot = state["global"][-4:]
+            if random.random() < BFS_EXPLORE_PROB and bfs_one_hot.sum() > 0:
+                action = int(np.argmax(bfs_one_hot))
+            else:
+                action = random.randint(0, N_ACTIONS - 1)
         else:
             with torch.no_grad():
-                s = torch.FloatTensor(state).unsqueeze(0).to(self.device)
-                action = int(self.q_net(s).argmax(dim=1).item())
+                grid, gvec = self._state_to_tensors(state)
+                action = int(self.q_net(grid, gvec).argmax(dim=1).item())
 
-        self._last_state = state
+        self._last_state  = state
         self._last_action = action
         return action
 
+    # -- Storing transitions --------------------------------------------------
     def store(self, next_obs, reward, done):
         if not self.training or self._last_state is None:
             return
-        next_state = preprocess_obs(next_obs)
+
+        # peek() so the stacker isn't double-advanced before the next act().
+        next_state = self._stacker.peek(next_obs)
         self.replay_buffer.push(
             self._last_state, self._last_action, reward, next_state, float(done)
         )
         self._step_count += 1
-        if self._step_count % self.target_update_freq == 0:
-            self.target_net.load_state_dict(self.q_net.state_dict())
 
+        # Linear epsilon decay tied to env steps, not episodes (episode
+        # lengths are randomised in training, which would otherwise make
+        # decay rate non-uniform).
+        frac = min(1.0, self._step_count / float(self.epsilon_decay_steps))
+        self.epsilon = self._epsilon_start_value + frac * (
+            self.epsilon_end - self._epsilon_start_value
+        )
+
+    # -- Training -------------------------------------------------------------
     def train_step(self):
         if not self.training or len(self.replay_buffer) < self.min_buffer_size:
             return None
         return self._train_step()
 
     def update(self, next_obs, reward, done):
+        """Convenience: store() followed by train_step()."""
         self.store(next_obs, reward, done)
         return self.train_step()
 
     def _train_step(self):
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
+        grids, globs, actions, rewards, n_grids, n_globs, dones = \
+            self.replay_buffer.sample(self.batch_size)
 
-        states = torch.FloatTensor(states).to(self.device)
-        actions = torch.LongTensor(actions).to(self.device)
-        rewards = torch.FloatTensor(rewards).to(self.device)
-        next_states = torch.FloatTensor(next_states).to(self.device)
-        dones = torch.FloatTensor(dones).to(self.device)
+        grids   = torch.from_numpy(grids).to(self.device)
+        globs   = torch.from_numpy(globs).to(self.device)
+        actions = torch.from_numpy(actions).to(self.device)
+        rewards = torch.from_numpy(rewards).to(self.device)
+        n_grids = torch.from_numpy(n_grids).to(self.device)
+        n_globs = torch.from_numpy(n_globs).to(self.device)
+        dones   = torch.from_numpy(dones).to(self.device)
 
-        q_values = self.q_net(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        q_values = self.q_net(grids, globs).gather(
+            1, actions.unsqueeze(1)
+        ).squeeze(1)
 
-        # Double DQN: action selection by online net, evaluation by target net.
+        # Double DQN: live net picks the best next action, target net evaluates it.
         with torch.no_grad():
-            next_actions = self.q_net(next_states).argmax(dim=1)
-            next_q = self.target_net(next_states).gather(1, next_actions.unsqueeze(1)).squeeze(1)
-            targets = rewards + self.gamma * next_q * (1 - dones)
+            next_actions = self.q_net(n_grids, n_globs).argmax(dim=1)
+            next_q       = self.target_net(n_grids, n_globs).gather(
+                1, next_actions.unsqueeze(1)
+            ).squeeze(1)
+            targets = rewards + self.gamma * next_q * (1.0 - dones)
 
-        # Huber loss is more robust to reward outliers than MSE.
-        loss = nn.SmoothL1Loss()(q_values, targets)
+        loss = nn.functional.smooth_l1_loss(q_values, targets)
+
         self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
         self.optimizer.step()
+
+        # Polyak (soft) target update: target <- (1 - tau) * target + tau * live.
+        with torch.no_grad():
+            for p, tp in zip(self.q_net.parameters(),
+                             self.target_net.parameters()):
+                tp.data.mul_(1.0 - self.tau).add_(self.tau * p.data)
+
+        self._train_steps += 1
         return float(loss.item())
 
-    def end_episode(self):
-        self.epsilon = max(self.epsilon_end, self.epsilon * self.epsilon_decay)
-        self.reset_episode()
-
+    # -- I/O ------------------------------------------------------------------
     def save(self, path=None, filename="weights.pth"):
         save_path = path or self.config.weights_dir
         os.makedirs(save_path, exist_ok=True)
         torch.save(self.q_net.state_dict(), os.path.join(save_path, filename))
 
     def load(self) -> None:
+        # Queue the weights file; act() does the actual load once the
+        # network has been built. This lets the same Agent class work
+        # both for fresh training (no file yet) and for evaluation.
         weights_path = os.path.join(self.config.weights_dir, "weights.pth")
         if not os.path.exists(weights_path):
-            print(f"No weights found at {weights_path} -- starting fresh.")
+            print(f"No CNN weights found at {weights_path} -- starting fresh.")
             return
         self._pending_load_path = weights_path
-        print(f"Weights queued for loading from {weights_path}")
+        print(f"CNN weights queued for loading from {weights_path}")
