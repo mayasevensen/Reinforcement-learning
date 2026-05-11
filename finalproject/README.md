@@ -227,10 +227,6 @@ python src/train.py
 3. Then compete
 python src/compete/compete.py src/agents/agent/ src/agents/random/ --output replay_random.json
 python src/compete/compete.py src/agents/agent/ src/agents/baseline/ --output replay_baseline.json
-OR
-run evaluate.py to get a summary of the results against all agents over 200 rounds with random number of steps per round:
-python src/evaluate.py weights/weights_best.pth
-python src/evaluate.py weights/weights.pth
 
 4. Visualise
 if you want to visualise you need to already have the replay files from the compete step. Then you can run:
