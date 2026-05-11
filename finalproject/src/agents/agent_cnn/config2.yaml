@@ -16,10 +16,10 @@ batch_size: 64
 # episodes that's ~2.5M total steps, so 400k decay reaches epsilon_end at
 # roughly episode 800 -- right when the baseline phase starts.
 epsilon_start: 1.0
-epsilon_end: 0.06
+epsilon_end: 0.05
 # With ~500 steps/ep and 3000 episodes = ~1.5M total steps.
 # 200k decay steps hits epsilon_end around episode 400 -- baseline phase start.
-epsilon_decay_steps: 350000
+epsilon_decay_steps: 2000000
 
 # --- Replay buffer ---
 # Reduced for CPU: less RAM pressure and faster sampling.

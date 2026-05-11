@@ -3,6 +3,160 @@ No weights found at weights\weights.pth -- starting fresh.
 [init] all opponents loaded: passive, random, baseline, bfs
 Starting training. device=cpu, epsilon=1.000, hidden_dim=128, num_episodes=5000
 Phases: 0-300 passive | 300-800 random | 800-1800 baseline | 1800-3500 BFS | 3500-5000 BFS+selfplay
-Ep    50 [passive ] opp=passive  | avg_reward= -496.1 | avg_score=4.00 | eps=0.975 | buf=20357 | dshape=0.188
-Ep   100 [passive ] opp=passive  | avg_reward= -475.7 | avg_score=4.54 | eps=0.951 | buf=39752 | dshape=0.175
-Ep   150 [passive ] opp=passive  | avg_reward= -487.3 | avg_score=5.28 | eps=0.928 | buf=50000 | dshape=0.163
+Ep    50 [passive ] opp=passive  | avg_score=5.1 | score/100steps=1.09 | avg_len=465 | eps=0.975 | buf=23253 | dshape=0.193
+Ep   100 [passive ] opp=passive  | avg_score=5.9 | score/100steps=1.31 | avg_len=477 | eps=0.951 | buf=47080 | dshape=0.187
+Ep   150 [passive ] opp=passive  | avg_score=7.1 | score/100steps=1.43 | avg_len=507 | eps=0.928 | buf=50000 | dshape=0.180
+Ep   200 [passive ] opp=passive  | avg_score=9.5 | score/100steps=1.84 | avg_len=540 | eps=0.905 | buf=50000 | dshape=0.173
+  [eval ep 200] vs baseline: 31.2-37.5 wr=40% | vs random: 13.7-5.7 wr=70% | vs bfs: 25.7-67.5 wr=0%
+  [eval] new best checkpoint (score=0.310, baseline_wr=40%, bfs_margin=-41.8)
+Ep   250 [passive ] opp=passive  | avg_score=10.6 | score/100steps=2.04 | avg_len=523 | eps=0.882 | buf=50000 | dshape=0.167
+Ep   300 [passive ] opp=passive  | avg_score=10.7 | score/100steps=2.13 | avg_len=522 | eps=0.861 | buf=50000 | dshape=0.160
+Ep   350 [random  ] opp=random   | avg_score=12.6 | score/100steps=2.62 | avg_len=492 | eps=0.839 | buf=50000 | dshape=0.153
+Ep   400 [random  ] opp=random   | avg_score=14.7 | score/100steps=2.94 | avg_len=515 | eps=0.819 | buf=50000 | dshape=0.147
+  [eval ep 400] vs baseline: 23.9-35.1 wr=20% | vs random: 17.3-6.5 wr=80% | vs bfs: 16.1-67.0 wr=0%
+Ep   450 [random  ] opp=random   | avg_score=15.1 | score/100steps=3.20 | avg_len=486 | eps=0.798 | buf=50000 | dshape=0.140
+Ep   500 [random  ] opp=random   | avg_score=15.2 | score/100steps=3.00 | avg_len=507 | eps=0.779 | buf=50000 | dshape=0.133
+  [save] ep 500: latest weights.pth saved (best ckpt score so far: 0.310)
+Ep   550 [random  ] opp=random   | avg_score=16.5 | score/100steps=3.60 | avg_len=478 | eps=0.760 | buf=50000 | dshape=0.127
+Ep   600 [random  ] opp=random   | avg_score=18.0 | score/100steps=3.70 | avg_len=495 | eps=0.741 | buf=50000 | dshape=0.120
+  [eval ep 600] vs baseline: 28.0-27.4 wr=50% | vs random: 17.3-4.7 wr=90% | vs bfs: 32.3-65.1 wr=0%
+  [eval] new best checkpoint (score=0.433, baseline_wr=50%, bfs_margin=-32.8)
+Ep   650 [random  ] opp=random   | avg_score=20.3 | score/100steps=4.14 | avg_len=504 | eps=0.722 | buf=50000 | dshape=0.113
+Ep   700 [random  ] opp=random   | avg_score=20.6 | score/100steps=4.14 | avg_len=508 | eps=0.705 | buf=50000 | dshape=0.107
+Ep   750 [random  ] opp=random   | avg_score=22.6 | score/100steps=4.67 | avg_len=498 | eps=0.687 | buf=50000 | dshape=0.100
+Ep   800 [random  ] opp=random   | avg_score=24.5 | score/100steps=4.86 | avg_len=505 | eps=0.670 | buf=50000 | dshape=0.093
+  [eval ep 800] vs baseline: 49.3-28.8 wr=80% | vs random: 23.7-5.5 wr=80% | vs bfs: 37.6-61.0 wr=20%
+  [eval] new best checkpoint (score=0.753, baseline_wr=80%, bfs_margin=-23.4)
+Ep   850 [baseline] opp=random   | avg_score=23.0 | score/100steps=4.77 | avg_len=489 | eps=0.654 | buf=50000 | dshape=0.087
+Ep   900 [baseline] opp=baseline | avg_score=26.1 | score/100steps=5.08 | avg_len=517 | eps=0.638 | buf=50000 | dshape=0.080
+Ep   950 [baseline] opp=random   | avg_score=24.9 | score/100steps=5.05 | avg_len=500 | eps=0.622 | buf=50000 | dshape=0.073
+Ep  1000 [baseline] opp=baseline | avg_score=30.1 | score/100steps=5.63 | avg_len=538 | eps=0.606 | buf=50000 | dshape=0.067
+  [eval ep 1000] vs baseline: 43.2-21.6 wr=100% | vs random: 36.1-5.1 wr=90% | vs bfs: 52.8-70.4 wr=0%
+  [eval] new best checkpoint (score=0.971, baseline_wr=100%, bfs_margin=-17.6)
+  [save] ep 1000: latest weights.pth saved (best ckpt score so far: 0.971)
+Ep  1050 [baseline] opp=baseline | avg_score=29.1 | score/100steps=5.62 | avg_len=519 | eps=0.591 | buf=50000 | dshape=0.060
+Ep  1100 [baseline] opp=baseline | avg_score=28.4 | score/100steps=5.92 | avg_len=483 | eps=0.577 | buf=50000 | dshape=0.053
+Ep  1150 [baseline] opp=random   | avg_score=28.3 | score/100steps=5.67 | avg_len=490 | eps=0.563 | buf=50000 | dshape=0.047
+Ep  1200 [baseline] opp=baseline | avg_score=26.7 | score/100steps=6.04 | avg_len=446 | eps=0.549 | buf=50000 | dshape=0.040
+  [eval ep 1200] vs baseline: 51.5-27.4 wr=100% | vs random: 43.9-7.3 wr=100% | vs bfs: 57.2-69.1 wr=10%
+  [eval] new best checkpoint (score=0.981, baseline_wr=100%, bfs_margin=-11.9)
+Ep  1250 [baseline] opp=baseline | avg_score=32.9 | score/100steps=6.38 | avg_len=525 | eps=0.535 | buf=50000 | dshape=0.033
+Ep  1300 [baseline] opp=baseline | avg_score=33.5 | score/100steps=6.57 | avg_len=511 | eps=0.522 | buf=50000 | dshape=0.027
+Ep  1350 [baseline] opp=random   | avg_score=34.4 | score/100steps=7.05 | avg_len=494 | eps=0.509 | buf=50000 | dshape=0.020
+Ep  1400 [baseline] opp=baseline | avg_score=33.2 | score/100steps=6.68 | avg_len=505 | eps=0.496 | buf=50000 | dshape=0.013
+  [eval ep 1400] vs baseline: 48.1-25.4 wr=100% | vs random: 37.7-5.8 wr=100% | vs bfs: 50.2-66.2 wr=0%
+Ep  1450 [baseline] opp=baseline | avg_score=34.5 | score/100steps=6.95 | avg_len=496 | eps=0.484 | buf=50000 | dshape=0.007
+Ep  1500 [baseline] opp=baseline | avg_score=33.4 | score/100steps=6.97 | avg_len=485 | eps=0.472 | buf=50000 | dshape=0.000
+  [save] ep 1500: latest weights.pth saved (best ckpt score so far: 0.981)
+Ep  1550 [baseline] opp=baseline | avg_score=35.2 | score/100steps=7.24 | avg_len=479 | eps=0.461 | buf=50000 | dshape=0.000
+Ep  1600 [baseline] opp=random   | avg_score=38.1 | score/100steps=7.88 | avg_len=483 | eps=0.449 | buf=50000 | dshape=0.000
+  [eval ep 1600] vs baseline: 61.0-28.0 wr=100% | vs random: 63.4-5.6 wr=100% | vs bfs: 59.4-64.5 wr=30%
+  [eval] new best checkpoint (score=0.992, baseline_wr=100%, bfs_margin=-5.1)
+Ep  1650 [baseline] opp=baseline | avg_score=32.6 | score/100steps=7.21 | avg_len=455 | eps=0.438 | buf=50000 | dshape=0.000
+Ep  1700 [baseline] opp=baseline | avg_score=36.9 | score/100steps=7.55 | avg_len=493 | eps=0.427 | buf=50000 | dshape=0.000
+Ep  1750 [baseline] opp=baseline | avg_score=41.6 | score/100steps=8.05 | avg_len=522 | eps=0.417 | buf=50000 | dshape=0.000
+Ep  1800 [baseline] opp=baseline | avg_score=43.9 | score/100steps=8.01 | avg_len=550 | eps=0.406 | buf=50000 | dshape=0.000
+  [eval ep 1800] vs baseline: 74.0-27.6 wr=100% | vs random: 63.2-4.8 wr=100% | vs bfs: 50.7-54.3 wr=40%
+  [eval] new best checkpoint (score=0.993, baseline_wr=100%, bfs_margin=-3.6)
+Ep  1850 [bfs     ] opp=bfs      | avg_score=36.4 | score/100steps=7.16 | avg_len=514 | eps=0.396 | buf=50000 | dshape=0.000
+Ep  1900 [bfs     ] opp=baseline | avg_score=38.7 | score/100steps=7.30 | avg_len=536 | eps=0.387 | buf=50000 | dshape=0.000
+Ep  1950 [bfs     ] opp=bfs      | avg_score=37.3 | score/100steps=7.64 | avg_len=499 | eps=0.377 | buf=50000 | dshape=0.000
+Ep  2000 [bfs     ] opp=bfs      | avg_score=41.4 | score/100steps=8.16 | avg_len=510 | eps=0.368 | buf=50000 | dshape=0.000
+  [eval ep 2000] vs baseline: 51.1-25.5 wr=90% | vs random: 44.7-5.6 wr=100% | vs bfs: 52.0-57.8 wr=40%
+  [save] ep 2000: latest weights.pth saved (best ckpt score so far: 0.993)
+Ep  2050 [bfs     ] opp=bfs      | avg_score=38.7 | score/100steps=7.81 | avg_len=494 | eps=0.359 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 2100 (pool size = 1)
+Ep  2100 [bfs     ] opp=baseline | avg_score=36.9 | score/100steps=8.02 | avg_len=466 | eps=0.350 | buf=50000 | dshape=0.000
+Ep  2150 [bfs     ] opp=bfs      | avg_score=41.8 | score/100steps=8.05 | avg_len=525 | eps=0.341 | buf=50000 | dshape=0.000
+Ep  2200 [bfs     ] opp=bfs      | avg_score=41.5 | score/100steps=8.27 | avg_len=502 | eps=0.333 | buf=50000 | dshape=0.000
+  [eval ep 2200] vs baseline: 40.1-20.7 wr=100% | vs random: 51.3-5.7 wr=100% | vs bfs: 54.8-60.2 wr=40%
+Ep  2250 [bfs     ] opp=bfs      | avg_score=36.6 | score/100steps=8.06 | avg_len=470 | eps=0.325 | buf=50000 | dshape=0.000
+Ep  2300 [bfs     ] opp=bfs      | avg_score=40.0 | score/100steps=8.22 | avg_len=492 | eps=0.317 | buf=50000 | dshape=0.000
+Ep  2350 [bfs     ] opp=baseline | avg_score=42.7 | score/100steps=8.74 | avg_len=485 | eps=0.309 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 2400 (pool size = 2)
+Ep  2400 [bfs     ] opp=bfs      | avg_score=40.5 | score/100steps=8.24 | avg_len=492 | eps=0.301 | buf=50000 | dshape=0.000
+  [eval ep 2400] vs baseline: 51.6-25.3 wr=90% | vs random: 40.1-4.7 wr=100% | vs bfs: 39.8-64.2 wr=10%
+Ep  2450 [bfs     ] opp=baseline | avg_score=40.4 | score/100steps=8.31 | avg_len=495 | eps=0.294 | buf=50000 | dshape=0.000
+Ep  2500 [bfs     ] opp=bfs      | avg_score=39.0 | score/100steps=7.90 | avg_len=489 | eps=0.286 | buf=50000 | dshape=0.000
+  [save] ep 2500: latest weights.pth saved (best ckpt score so far: 0.993)
+Ep  2550 [bfs     ] opp=baseline | avg_score=38.5 | score/100steps=8.39 | avg_len=465 | eps=0.279 | buf=50000 | dshape=0.000
+Ep  2600 [bfs     ] opp=baseline | avg_score=46.3 | score/100steps=8.67 | avg_len=534 | eps=0.272 | buf=50000 | dshape=0.000
+  [eval ep 2600] vs baseline: 57.8-28.9 wr=100% | vs random: 42.9-6.3 wr=100% | vs bfs: 48.7-55.2 wr=40%
+Ep  2650 [bfs     ] opp=baseline | avg_score=43.1 | score/100steps=8.65 | avg_len=496 | eps=0.266 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 2700 (pool size = 3)
+Ep  2700 [bfs     ] opp=bfs      | avg_score=40.7 | score/100steps=8.48 | avg_len=481 | eps=0.259 | buf=50000 | dshape=0.000
+Ep  2750 [bfs     ] opp=baseline | avg_score=46.9 | score/100steps=8.63 | avg_len=547 | eps=0.253 | buf=50000 | dshape=0.000
+Ep  2800 [bfs     ] opp=baseline | avg_score=43.9 | score/100steps=8.88 | avg_len=507 | eps=0.247 | buf=50000 | dshape=0.000
+  [eval ep 2800] vs baseline: 65.4-30.1 wr=100% | vs random: 47.4-7.8 wr=100% | vs bfs: 61.2-71.3 wr=20%
+Ep  2850 [bfs     ] opp=bfs      | avg_score=46.9 | score/100steps=8.92 | avg_len=528 | eps=0.240 | buf=50000 | dshape=0.000
+Ep  2900 [bfs     ] opp=bfs      | avg_score=45.8 | score/100steps=9.02 | avg_len=511 | eps=0.234 | buf=50000 | dshape=0.000
+Ep  2950 [bfs     ] opp=bfs      | avg_score=47.2 | score/100steps=8.91 | avg_len=539 | eps=0.229 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 3000 (pool size = 4)
+Ep  3000 [bfs     ] opp=bfs      | avg_score=42.9 | score/100steps=8.98 | avg_len=481 | eps=0.223 | buf=50000 | dshape=0.000
+  [eval ep 3000] vs baseline: 61.7-30.0 wr=100% | vs random: 55.6-6.7 wr=100% | vs bfs: 56.0-62.5 wr=20%
+  [save] ep 3000: latest weights.pth saved (best ckpt score so far: 0.993)
+Ep  3050 [bfs     ] opp=bfs      | avg_score=48.5 | score/100steps=9.65 | avg_len=506 | eps=0.218 | buf=50000 | dshape=0.000
+Ep  3100 [bfs     ] opp=bfs      | avg_score=46.2 | score/100steps=9.85 | avg_len=473 | eps=0.212 | buf=50000 | dshape=0.000
+Ep  3150 [bfs     ] opp=baseline | avg_score=47.7 | score/100steps=9.29 | avg_len=513 | eps=0.207 | buf=50000 | dshape=0.000
+Ep  3200 [bfs     ] opp=bfs      | avg_score=49.3 | score/100steps=9.53 | avg_len=519 | eps=0.202 | buf=50000 | dshape=0.000
+  [eval ep 3200] vs baseline: 51.5-28.2 wr=100% | vs random: 28.6-3.9 wr=100% | vs bfs: 62.4-68.7 wr=20%
+Ep  3250 [bfs     ] opp=bfs      | avg_score=45.9 | score/100steps=9.51 | avg_len=479 | eps=0.197 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 3300 (pool size = 5)
+Ep  3300 [bfs     ] opp=bfs      | avg_score=45.6 | score/100steps=8.77 | avg_len=524 | eps=0.192 | buf=50000 | dshape=0.000
+Ep  3350 [bfs     ] opp=bfs      | avg_score=44.7 | score/100steps=9.18 | avg_len=490 | eps=0.187 | buf=50000 | dshape=0.000
+Ep  3400 [bfs     ] opp=bfs      | avg_score=47.3 | score/100steps=9.60 | avg_len=490 | eps=0.183 | buf=50000 | dshape=0.000
+  [eval ep 3400] vs baseline: 56.4-29.9 wr=100% | vs random: 30.2-5.2 wr=100% | vs bfs: 58.7-64.8 wr=40%
+Ep  3450 [bfs     ] opp=bfs      | avg_score=47.4 | score/100steps=9.31 | avg_len=513 | eps=0.178 | buf=50000 | dshape=0.000
+Ep  3500 [bfs     ] opp=bfs      | avg_score=49.8 | score/100steps=9.90 | avg_len=507 | eps=0.174 | buf=50000 | dshape=0.000
+  [save] ep 3500: latest weights.pth saved (best ckpt score so far: 0.993)
+Ep  3550 [bfs+self] opp=selfplay | avg_score=43.7 | score/100steps=9.29 | avg_len=477 | eps=0.169 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 3600 (pool size = 5)
+Ep  3600 [bfs+self] opp=bfs      | avg_score=44.7 | score/100steps=9.61 | avg_len=465 | eps=0.165 | buf=50000 | dshape=0.000
+  [eval ep 3600] vs baseline: 43.4-23.8 wr=90% | vs random: 48.7-3.4 wr=100% | vs bfs: 49.0-53.6 wr=40%
+Ep  3650 [bfs+self] opp=selfplay | avg_score=46.4 | score/100steps=9.70 | avg_len=487 | eps=0.161 | buf=50000 | dshape=0.000
+Ep  3700 [bfs+self] opp=bfs      | avg_score=47.6 | score/100steps=9.22 | avg_len=516 | eps=0.157 | buf=50000 | dshape=0.000
+Ep  3750 [bfs+self] opp=bfs      | avg_score=43.5 | score/100steps=9.47 | avg_len=453 | eps=0.153 | buf=50000 | dshape=0.000
+Ep  3800 [bfs+self] opp=bfs      | avg_score=50.5 | score/100steps=9.99 | avg_len=505 | eps=0.149 | buf=50000 | dshape=0.000
+  [eval ep 3800] vs baseline: 62.4-26.2 wr=100% | vs random: 58.0-6.4 wr=100% | vs bfs: 46.2-43.4 wr=60%
+  [eval] new best checkpoint (score=1.006, baseline_wr=100%, bfs_margin=2.8)
+Ep  3850 [bfs+self] opp=bfs      | avg_score=50.8 | score/100steps=10.04 | avg_len=504 | eps=0.146 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 3900 (pool size = 5)
+Ep  3900 [bfs+self] opp=selfplay | avg_score=49.3 | score/100steps=10.12 | avg_len=486 | eps=0.142 | buf=50000 | dshape=0.000
+Ep  3950 [bfs+self] opp=selfplay | avg_score=50.4 | score/100steps=9.99 | avg_len=502 | eps=0.139 | buf=50000 | dshape=0.000
+Ep  4000 [bfs+self] opp=bfs      | avg_score=50.5 | score/100steps=10.14 | avg_len=501 | eps=0.135 | buf=50000 | dshape=0.000
+  [eval ep 4000] vs baseline: 70.4-30.9 wr=100% | vs random: 51.7-4.2 wr=100% | vs bfs: 56.3-62.4 wr=30%
+  [save] ep 4000: latest weights.pth saved (best ckpt score so far: 1.006)
+Ep  4050 [bfs+self] opp=bfs      | avg_score=50.1 | score/100steps=11.00 | avg_len=463 | eps=0.132 | buf=50000 | dshape=0.000
+Ep  4100 [bfs+self] opp=bfs      | avg_score=50.9 | score/100steps=10.48 | avg_len=500 | eps=0.129 | buf=50000 | dshape=0.000
+Ep  4150 [bfs+self] opp=selfplay | avg_score=55.3 | score/100steps=10.79 | avg_len=517 | eps=0.125 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 4200 (pool size = 5)
+Ep  4200 [bfs+self] opp=bfs      | avg_score=55.3 | score/100steps=10.09 | avg_len=547 | eps=0.122 | buf=50000 | dshape=0.000
+  [eval ep 4200] vs baseline: 64.0-27.5 wr=100% | vs random: 46.3-4.6 wr=100% | vs bfs: 68.0-70.5 wr=30%
+Ep  4250 [bfs+self] opp=bfs      | avg_score=52.3 | score/100steps=10.22 | avg_len=510 | eps=0.119 | buf=50000 | dshape=0.000
+Ep  4300 [bfs+self] opp=selfplay | avg_score=52.5 | score/100steps=10.60 | avg_len=504 | eps=0.116 | buf=50000 | dshape=0.000
+Ep  4350 [bfs+self] opp=bfs      | avg_score=55.9 | score/100steps=10.49 | avg_len=516 | eps=0.114 | buf=50000 | dshape=0.000
+Ep  4400 [bfs+self] opp=selfplay | avg_score=52.0 | score/100steps=11.29 | avg_len=461 | eps=0.111 | buf=50000 | dshape=0.000
+  [eval ep 4400] vs baseline: 72.1-34.7 wr=100% | vs random: 63.0-5.4 wr=100% | vs bfs: 56.1-61.9 wr=50%
+Ep  4450 [bfs+self] opp=bfs      | avg_score=52.2 | score/100steps=10.58 | avg_len=505 | eps=0.108 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 4500 (pool size = 5)
+Ep  4500 [bfs+self] opp=selfplay | avg_score=51.6 | score/100steps=10.90 | avg_len=483 | eps=0.105 | buf=50000 | dshape=0.000
+  [save] ep 4500: latest weights.pth saved (best ckpt score so far: 1.006)
+Ep  4550 [bfs+self] opp=selfplay | avg_score=48.1 | score/100steps=9.61 | avg_len=505 | eps=0.103 | buf=50000 | dshape=0.000
+Ep  4600 [bfs+self] opp=selfplay | avg_score=50.5 | score/100steps=10.27 | avg_len=493 | eps=0.100 | buf=50000 | dshape=0.000
+  [eval ep 4600] vs baseline: 64.4-31.0 wr=100% | vs random: 56.4-5.6 wr=90% | vs bfs: 52.1-61.3 wr=20%
+Ep  4650 [bfs+self] opp=selfplay | avg_score=53.1 | score/100steps=10.72 | avg_len=493 | eps=0.098 | buf=50000 | dshape=0.000
+Ep  4700 [bfs+self] opp=bfs      | avg_score=54.0 | score/100steps=10.29 | avg_len=527 | eps=0.095 | buf=50000 | dshape=0.000
+Ep  4750 [bfs+self] opp=selfplay | avg_score=47.3 | score/100steps=10.26 | avg_len=464 | eps=0.093 | buf=50000 | dshape=0.000
+  [selfplay] snapshot taken at ep 4800 (pool size = 5)
+Ep  4800 [bfs+self] opp=selfplay | avg_score=44.5 | score/100steps=9.90 | avg_len=456 | eps=0.091 | buf=50000 | dshape=0.000
+  [eval ep 4800] vs baseline: 59.8-30.5 wr=100% | vs random: 33.2-5.7 wr=100% | vs bfs: 54.5-62.6 wr=0%
+Ep  4850 [bfs+self] opp=selfplay | avg_score=52.5 | score/100steps=10.39 | avg_len=505 | eps=0.088 | buf=50000 | dshape=0.000
+Ep  4900 [bfs+self] opp=selfplay | avg_score=53.2 | score/100steps=11.06 | avg_len=492 | eps=0.086 | buf=50000 | dshape=0.000
+Ep  4950 [bfs+self] opp=bfs      | avg_score=52.6 | score/100steps=10.72 | avg_len=499 | eps=0.084 | buf=50000 | dshape=0.000
+Ep  5000 [bfs+self] opp=bfs      | avg_score=46.8 | score/100steps=9.89 | avg_len=482 | eps=0.082 | buf=50000 | dshape=0.000
+  [eval ep 5000] vs baseline: 72.2-33.3 wr=100% | vs random: 53.9-6.8 wr=100% | vs bfs: 50.6-66.6 wr=20%
+  [save] ep 5000: latest weights.pth saved (best ckpt score so far: 1.006)
+
+Training complete after 5000 episodes.
+Best checkpoint score: 1.006
+Tip: if weights_best.pth outperforms weights.pth, copy it before submitting.

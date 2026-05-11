@@ -1,62 +1,38 @@
 """
 CNN-based Dueling Double DQN agent for the Collector environment.
 
-Speed + quality changes vs the previous CNN agent:
+Architecture
+  - Strided CNN backbone (16x16 -> 8x8 -> 4x4) feeding dueling
+    value/advantage heads.
+  - Input is a 6-frame stack of 4 spatial channels
+    (obstacles, items, my position, opponent position) plus a 10-dim
+    vector of normalised scalars including a BFS-suggested next action
+    toward the nearest reachable item.
 
-  Architecture
-    - Strided convs shrink spatial dims 16 -> 16 -> 8 -> 4 instead of
-      keeping 16x16 throughout. Final flatten is 64*4*4 = 1024 features
-      instead of 16384, which removes ~3.4M parameters from the
-      first dense layer.
-    - Total params now ~150K (was ~4.2M). Forward+backward is
-      roughly an order of magnitude faster on CPU and several times
-      faster on GPU.
-    - Channels are now cleanly separated:
-        Ch 0: obstacles only (binary)
-        Ch 1: my position    (one-hot)
-        Ch 2: opponent pos   (one-hot)
-        Ch 3: items          (binary)
-      Empty tiles are implied by all-zero. The previous design put
-      tile_type/2 in ch 0, which mixed obstacles and items together.
+Training
+  - Double DQN target with Polyak (soft) updates of the target net.
+  - Huber (SmoothL1) loss with gradient clipping at 1.0.
+  - Pre-allocated numpy replay buffer for fast sampling.
+  - Epsilon-greedy exploration with per-step linear decay.
 
-  Replay buffer
-    - Pre-allocated numpy arrays. No per-step Python allocations,
-      no np.stack at sample time. Sampling is just fancy indexing.
-    - Reduces wall-clock per train_step noticeably, especially as
-      the buffer fills up.
-
-  Target network
-    - Polyak (soft) updates with tau=0.005 every train step instead
-      of a hard copy every 500 steps. Smoother targets, no jumps.
-
-  Exploration
-    - Epsilon decays per *training step*, not per episode. Decoupled
-      from episode length, which varies from 200 to 800 here.
-
-  Everything else preserved
-    - Double DQN target computation
-    - Dueling value/advantage heads
-    - Huber (SmoothL1) loss
-    - Gradient clipping at 1.0
-    - Same epsilon-greedy action selection
-    - Same load() / save() / act() / store() / train_step() interface
-      so trainCNN.py barely changes.
+Public interface
+  - act(obs) / store(next_obs, reward, done) / train_step()
+  - reset_episode() / end_episode()
+  - save() / load()
 """
 
 import os
 import random
+from collections import deque
+from types import SimpleNamespace
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from types import SimpleNamespace
 
 from agents.agent_base import BaseAgent
 from environments.collector.state import EnvState
-
-# import warnings
-# warnings.filterwarnings("ignore")
-# os.environ["PYTHONWARNINGS"] = "ignore"
 
 
 # ---------------------------------------------------------------------------
@@ -64,28 +40,42 @@ from environments.collector.state import EnvState
 # ---------------------------------------------------------------------------
 GRID_H = 16
 GRID_W = 16
-GLOBAL_DIM = 10  # my_score, opp_score, items_on_map, steps, opp_dist, opp_closer,
-                 # + 4-dim one-hot of BFS-suggested next action toward nearest item
 N_ACTIONS = 4
 
+# Global feature vector layout (10 dims total):
+#   [my_score, opp_score, items_on_map, steps, opp_dist, opp_closer (with manhatten)]
+#   + 4-dim one-hot of BFS-suggested next action toward nearest item
+GLOBAL_DIM = 10
 
-# ---------------------------------------------------------------------------
+# Frame stacking: how many recent frames of (me, opp) positions to keep.
+# Static channels (obstacles, items) are not stacked (no change)
+# and the global feature `items_on_map` already tracks item depletion.
+#
+# Stacked grid layout (N_CHANNELS = 2 + 2*FRAME_STACK):
+#   ch 0          : obstacles (binary)
+#   ch 1          : items (binary)
+#   ch 2..2+K-1   : my position over last K frames (newest first)
+#   ch 2+K..end   : opponent position over last K frames (newest first)
+FRAME_STACK = 3
+N_CHANNELS = 2 + 2 * FRAME_STACK
+
+
 # BFS navigation helper
-# ---------------------------------------------------------------------------
+# Action conventions used throughout this file:
+# [up, right, down, left]
+_BFS_DELTAS = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+
+BFS_EXPLORE_PROB = 0.4  # share of random actions that follow the BFS hint
+
+
 def bfs_next_action(tile_map, start):
     """
     BFS from `start` to the nearest reachable item on `tile_map`.
-    Returns a one-hot np.float32 array of shape (4,) where the hot index
-    is the first step on the shortest path:
-        0=up, 1=right, 2=down, 3=left
-    Returns all-zeros if there are no reachable items or agent is already
-    on one (shouldn't happen, but safe).
+    Returns a one-hot array of length 4 indicating the first step
+    on the shortest path (up/right/down/left). Returns all-zeros if no
+    item is reachable or `start` is invalid.
 
-    Action deltas match the environment convention:
-        0: up    -> dy=-1, dx= 0
-        1: right -> dy= 0, dx=+1
-        2: down  -> dy=+1, dx= 0
-        3: left  -> dy= 0, dx=-1
+    Treats tile_type == 1 as an obstacle and tile_type == 2 as an item.
     """
     H, W = tile_map.shape
     sy, sx = int(start[0]), int(start[1])
@@ -94,48 +84,33 @@ def bfs_next_action(tile_map, start):
     if not (0 <= sy < H and 0 <= sx < W) or tile_map[sy, sx] == 1:
         return one_hot
 
-    # BFS: state = (y, x), track parent to reconstruct first step
-    from collections import deque
-    parent = {(sy, sx): None}   # (y,x) -> (parent_y, parent_x) or None for start
-    first_action = {}            # (y,x) -> action taken from start to reach it
+    parent = {(sy, sx): None}  # for reconstructing the path
+    first_action = {}  # (y, x) -> first action taken from start
     queue = deque([(sy, sx)])
-
-    deltas = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # up, right, down, left
 
     while queue:
         y, x = queue.popleft()
 
+        # Goal test: an item that isn't the start cell.
         if tile_map[y, x] == 2 and (y, x) != (sy, sx):
-            # Found nearest item — reconstruct first action
-            # Walk back to find the node whose parent is the start
             cur = (y, x)
             while parent[cur] != (sy, sx):
                 cur = parent[cur]
             one_hot[first_action[cur]] = 1.0
             return one_hot
 
-        for a, (dy, dx) in enumerate(deltas):
+        for a, (dy, dx) in enumerate(_BFS_DELTAS):
             ny, nx = y + dy, x + dx
             if 0 <= ny < H and 0 <= nx < W and (ny, nx) not in parent \
                     and tile_map[ny, nx] != 1:
                 parent[(ny, nx)] = (y, x)
-                first_action[(ny, nx)] = first_action.get((y, x), a) \
-                    if (y, x) != (sy, sx) else a
+                # Inherit the first-action label from the parent, except
+                # at the start where the first action *is* `a`.
+                first_action[(ny, nx)] = a if (y, x) == (sy, sx) \
+                    else first_action[(y, x)]
                 queue.append((ny, nx))
 
     return one_hot  # no reachable item
-
-# Frame stacking: how many recent frames of (me, opp) positions to keep.
-# Static channels (obstacles, items) are not stacked -- they barely change
-# and the global feature `items_on_map` already tracks item depletion.
-#
-# Stacked channel layout:
-#   ch 0          : obstacles (binary)
-#   ch 1          : items (binary)
-#   ch 2..2+K-1   : my position over last K frames (newest first)
-#   ch 2+K..end   : opponent position over last K frames (newest first)
-FRAME_STACK = 2
-N_CHANNELS  = 2 + 2 * FRAME_STACK   # = 6 with FRAME_STACK=2
 
 
 # ---------------------------------------------------------------------------
@@ -143,23 +118,22 @@ N_CHANNELS  = 2 + 2 * FRAME_STACK   # = 6 with FRAME_STACK=2
 # ---------------------------------------------------------------------------
 def _raw_features(obs):
     """
-    Extract the four single-frame channels and the global feature vector
-    from a raw env observation. This is the building block the FrameStacker
-    composes into the final stacked observation.
+    Extract the four single-frame spatial channels and the 10-dim global
+    feature vector from a raw env observation.
 
     Returns:
-      ch_obs   : (H, W) float32  -- obstacle mask, static-ish
-      ch_items : (H, W) float32  -- item mask, decreases over time
-      ch_me    : (H, W) float32  -- my position one-hot
-      ch_opp   : (H, W) float32  -- opponent position one-hot
-      global_vec : (GLOBAL_DIM,) float32
+      ch_obs: (H, W) float32  - obstacle mask
+      ch_items: (H, W) float32  - item mask
+      ch_me: (H, W) float32  - my position one-hot
+      ch_opp: (H, W) float32  - opponent position one-hot
+      global_vec: (GLOBAL_DIM,) float32
     """
     raw_map = obs['map_features']['tile_type']
-    H, W    = raw_map.shape
-    my_pos  = obs['units']['position'][0]
+    H, W = raw_map.shape
+    my_pos = obs['units']['position'][0]
     opp_pos = obs['units']['position'][1]
 
-    ch_obs   = (raw_map == 1).astype(np.float32)
+    ch_obs = (raw_map == 1).astype(np.float32)
     ch_items = (raw_map == 2).astype(np.float32)
 
     ch_me = np.zeros((H, W), dtype=np.float32)
@@ -172,137 +146,127 @@ def _raw_features(obs):
     if 0 <= op_y < H and 0 <= op_x < W:
         ch_opp[op_y, op_x] = 1.0
 
+    # Global features, all normalised so they live in roughly [0, 1].
     diag = float(H + W)
-    team_pts   = obs['team_points'].astype(np.float32).flatten()
-    my_score   = float(team_pts[0]) / 50.0
-    opp_score  = float(team_pts[1]) / 50.0
+    team_pts = obs['team_points'].astype(np.float32).flatten()
+    my_score = float(team_pts[0]) / 50.0
+    opp_score = float(team_pts[1]) / 50.0
     items_norm = float(obs['items_on_map'].item()) / 50.0
     steps_norm = float(obs['steps'].item()) / 1000.0
-    opp_dist   = float(np.abs(opp_pos - my_pos).sum()) / diag
+    opp_dist = float(np.abs(opp_pos - my_pos).sum()) / diag
 
     item_locs = np.argwhere(raw_map == 2)
     if len(item_locs) > 0:
-        my_d  = float(np.abs(item_locs - my_pos).sum(axis=1).min())
+        my_d = float(np.abs(item_locs - my_pos).sum(axis=1).min())
         opp_d = float(np.abs(item_locs - opp_pos).sum(axis=1).min())
         opp_closer = 1.0 if opp_d < my_d else 0.0
     else:
         opp_closer = 0.0
 
-    # BFS-suggested next action toward nearest item (4-dim one-hot)
     bfs_action = bfs_next_action(raw_map, my_pos)
 
     global_vec = np.concatenate([
-        np.array([my_score, opp_score, items_norm, steps_norm, opp_dist, opp_closer],
-                 dtype=np.float32),
-        bfs_action,   # 4 dims: one-hot of recommended action
-    ])                # total: GLOBAL_DIM = 10
-
+        np.array([my_score, opp_score, items_norm, steps_norm,
+                  opp_dist, opp_closer], dtype=np.float32),
+        bfs_action,
+    ])
     return ch_obs, ch_items, ch_me, ch_opp, global_vec
 
 
 class FrameStacker:
     """
-    Maintains a rolling history of (me, opp) position channels and assembles
-    the stacked observation:
-        [obstacles, items, me_t, me_{t-1}, ..., me_{t-K+1},
-                          opp_t, opp_{t-1}, ..., opp_{t-K+1}]
+    Maintains a rolling K-frame history of (me, opp) position channels
+    and assembles the stacked observation:
+        [obstacles, items,
+         me_t, me_{t-1}, ..., me_{t-K+1},
+         opp_t, opp_{t-1}, ..., opp_{t-K+1}]
 
-    On reset(), the first frame is repeated K times to fill the history,
-    so the agent always has a valid K-frame stack from the very first step.
+    Cold start is handled by repeating the first frame K times, so the
+    network always sees a valid K-frame stack from the very first step.
 
-    One stacker per "view" -- the agent uses one for its own observations,
-    and FrozenSelfOpponent (in trainCNN.py) creates its own for self-play.
+    Each "view" needs its own stacker — the agent uses one for itself,
+    and self-play opponents create their own.
     """
 
     def __init__(self, k=FRAME_STACK):
         self.k = k
-        self._me_hist  = None  # list of (H, W) arrays, newest first
+        self._me_hist = None  # list of (H, W) arrays, newest first
         self._opp_hist = None
 
     def reset(self):
-        self._me_hist  = None
+        # Called between episodes so history doesn't leak across resets.
+        self._me_hist = None
         self._opp_hist = None
 
     def step(self, obs):
-        """
-        Process one observation. Returns a dict with keys "grid" and "global".
-        Call this on every step (including the first); the stacker handles
-        the cold-start case by repeating the first frame.
-        """
+        """Process one observation and advance the history. Returns {grid, global}."""
         ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
 
         if self._me_hist is None:
             # Cold start: pad history with copies of the first frame.
-            self._me_hist  = [ch_me]  * self.k
+            self._me_hist = [ch_me] * self.k
             self._opp_hist = [ch_opp] * self.k
         else:
-            self._me_hist.insert(0,  ch_me)
+            self._me_hist.insert(0, ch_me)
             self._opp_hist.insert(0, ch_opp)
-            if len(self._me_hist)  > self.k: self._me_hist.pop()
+            if len(self._me_hist) > self.k: self._me_hist.pop()
             if len(self._opp_hist) > self.k: self._opp_hist.pop()
 
         grid = np.stack(
             [ch_obs, ch_items] + self._me_hist + self._opp_hist,
-            axis=0
+            axis=0,
         ).astype(np.float32, copy=False)
-
         return {"grid": grid, "global": global_vec}
 
     def peek(self, obs):
         """
-        Compute what step(obs) WOULD return without mutating the history.
-        Used to compute next_state for the replay buffer in agent.store(),
-        so the stacker's state stays correct for the next call to step().
+        Same return value as step() but without mutating the history.
+        Used inside store() so the next call to act() sees the right history.
         """
         ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
 
         if self._me_hist is None:
-            me_hist  = [ch_me]  * self.k
+            me_hist = [ch_me] * self.k
             opp_hist = [ch_opp] * self.k
         else:
-            me_hist  = [ch_me]  + self._me_hist[:self.k - 1]
+            me_hist = [ch_me] + self._me_hist[:self.k - 1]
             opp_hist = [ch_opp] + self._opp_hist[:self.k - 1]
 
         grid = np.stack(
             [ch_obs, ch_items] + me_hist + opp_hist,
-            axis=0
+            axis=0,
         ).astype(np.float32, copy=False)
-
         return {"grid": grid, "global": global_vec}
 
 
 def preprocess_obs(obs):
     """
-    Stateless single-frame preprocessing. Used by self-play opponents that
-    don't carry their own stacker (each FrozenSelfOpponent should use a
-    FrameStacker; see trainCNN.py). Kept here for backwards compatibility
-    with any code that calls it directly.
-
-    Returns the same K-frame layout as FrameStacker.step(), but with the
-    history channels filled by repeating the current frame.
+    Stateless single-frame preprocessing: a stacked observation in which
+    the K position-history slots are filled by repeating the current frame.
+    Useful for callers that don't want to maintain their own FrameStacker.
     """
     ch_obs, ch_items, ch_me, ch_opp, global_vec = _raw_features(obs)
     grid = np.stack(
         [ch_obs, ch_items] + [ch_me] * FRAME_STACK + [ch_opp] * FRAME_STACK,
-        axis=0
+        axis=0,
     ).astype(np.float32, copy=False)
     return {"grid": grid, "global": global_vec}
 
 
 # ---------------------------------------------------------------------------
-# Network: small strided CNN + dueling heads
+# Network
 # ---------------------------------------------------------------------------
 class CNNQNetwork(nn.Module):
     """
-    Strided conv backbone:
-      Conv(N_CHANNELS -> 32, 3x3, stride=1, pad=1)  -> 16x16
-      Conv(32 -> 64,         3x3, stride=2, pad=1)  ->  8x8
-      Conv(64 -> 64,         3x3, stride=2, pad=1)  ->  4x4
-      Flatten -> 64*4*4 = 1024
+    Strided CNN backbone + dueling value/advantage heads.
 
-    Then merge with the global feature vector and feed dueling heads.
-
-    With FRAME_STACK=2 we have N_CHANNELS=6 inputs. Total ~220K params.
+    Backbone (input is N_CHANNELS x 16 x 16):
+        Conv 3x3 stride 1, pad 1: N_CHANNELS -> 32  (16 x 16)
+        Conv 3x3 stride 2, pad 1: 32  -> 64  (8 x 8)
+        Conv 3x3 stride 2, pad 1: 64  -> 64  (4 x 4)
+    The final 64*4*4 = 1024-dim feature is concatenated with the global
+    vector and fed to two MLPs that produce V(s) and A(s, ·). Q(s, a)
+    is reassembled as V + (A - mean(A)).
     """
 
     def __init__(self, global_dim, hidden_dim=128, output_dim=N_ACTIONS):
@@ -317,7 +281,7 @@ class CNNQNetwork(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        cnn_out_dim = 64 * 4 * 4   # 1024 for a 16x16 input
+        cnn_out_dim = 64 * 4 * 4  # for a 16x16 input
 
         self.merger = nn.Sequential(
             nn.Linear(cnn_out_dim + global_dim, hidden_dim),
@@ -340,33 +304,27 @@ class CNNQNetwork(nn.Module):
 
     def forward(self, grid, global_vec):
         """
-        grid       : (B, 4, H, W)
-        global_vec : (B, GLOBAL_DIM)
+        grid: (B, N_CHANNELS, H, W)
+        global_vec: (B, GLOBAL_DIM)
+        returns: (B, N_ACTIONS) Q-values
         """
-        h = self.cnn(grid)
-        h = h.flatten(start_dim=1)
+        h = self.cnn(grid).flatten(start_dim=1)
         h = torch.cat([h, global_vec], dim=1)
         h = self.merger(h)
 
         v = self.value_head(h)
         a = self.advantage_head(h)
+        # Subtracting mean(A) removes the V/A gauge ambiguity and stabilises training.
         return v + (a - a.mean(dim=1, keepdim=True))
 
 
 # ---------------------------------------------------------------------------
-# Pre-allocated replay buffer
+# Replay buffer
 # ---------------------------------------------------------------------------
 class ReplayBuffer:
     """
-    Pre-allocated numpy arrays for fast sampling.
-
-    Memory usage at capacity=50000, 10x16x16 grid, float32:
-      grids:      50000 * 10 * 16 * 16 * 4 bytes ~= 195 MB  (N_CHANNELS=10)
-      next_grids: same                           ~= 195 MB
-      globals:    50000 * 10 * 4                 ~= 2.0 MB   (GLOBAL_DIM=10)
-      etc.
-    Total ~400 MB, which is fine for a training run. If RAM is tight
-    you can drop capacity to e.g. 20000.
+    Pre-allocated circular buffer. Storing into fixed numpy arrays avoids
+    per-step Python allocations, and sampling is just fancy indexing.
     """
 
     def __init__(self, capacity, grid_shape, global_dim):
@@ -375,25 +333,25 @@ class ReplayBuffer:
         self.idx = 0
 
         C, H, W = grid_shape
-        self.grids       = np.zeros((capacity, C, H, W), dtype=np.float32)
-        self.globals_    = np.zeros((capacity, global_dim), dtype=np.float32)
-        self.actions     = np.zeros((capacity,), dtype=np.int64)
-        self.rewards     = np.zeros((capacity,), dtype=np.float32)
-        self.next_grids  = np.zeros((capacity, C, H, W), dtype=np.float32)
-        self.next_globs  = np.zeros((capacity, global_dim), dtype=np.float32)
-        self.dones       = np.zeros((capacity,), dtype=np.float32)
+        self.grids = np.zeros((capacity, C, H, W), dtype=np.float32)
+        self.globals_ = np.zeros((capacity, global_dim), dtype=np.float32)
+        self.actions = np.zeros((capacity,), dtype=np.int64)
+        self.rewards = np.zeros((capacity,), dtype=np.float32)
+        self.next_grids = np.zeros((capacity, C, H, W), dtype=np.float32)
+        self.next_globs = np.zeros((capacity, global_dim), dtype=np.float32)
+        self.dones = np.zeros((capacity,), dtype=np.float32)
 
     def push(self, state, action, reward, next_state, done):
         i = self.idx
-        self.grids[i]      = state["grid"]
-        self.globals_[i]   = state["global"]
-        self.actions[i]    = action
-        self.rewards[i]    = reward
+        self.grids[i] = state["grid"]
+        self.globals_[i] = state["global"]
+        self.actions[i] = action
+        self.rewards[i] = reward
         self.next_grids[i] = next_state["grid"]
         self.next_globs[i] = next_state["global"]
-        self.dones[i]      = float(done)
+        self.dones[i] = float(done)
 
-        self.idx  = (self.idx + 1) % self.capacity
+        self.idx = (self.idx + 1) % self.capacity
         self.size = min(self.size + 1, self.capacity)
 
     def sample(self, batch_size):
@@ -421,47 +379,46 @@ class Agent(BaseAgent):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Exploration
-        self.epsilon       = getattr(config, 'epsilon_start',     1.0)
-        self.epsilon_end   = getattr(config, 'epsilon_end',       0.05)
-        # Per-step decay: roughly hits epsilon_end after ~epsilon_decay_steps env steps.
+        # Exploration: epsilon decays linearly from start to end over
+        # epsilon_decay_steps env steps (driven from store()).
+        self.epsilon = getattr(config, 'epsilon_start', 1.0)
+        self.epsilon_end = getattr(config, 'epsilon_end', 0.05)
         self.epsilon_decay_steps = getattr(config, 'epsilon_decay_steps', 400_000)
+        self._epsilon_start_value = self.epsilon
 
         # Optimisation
-        self.gamma        = getattr(config, 'gamma',          0.99)
-        self.batch_size   = getattr(config, 'batch_size',     128)
-        self.lr           = getattr(config, 'learning_rate',  3e-4)
-        self.tau          = getattr(config, 'tau',            0.005)  # soft target update
-        self.training     = getattr(config, 'training',       False)
-        self.hidden_dim   = getattr(config, 'hidden_dim',     128)
+        self.gamma = getattr(config, 'gamma', 0.99)
+        self.batch_size = getattr(config, 'batch_size', 128)
+        self.lr = getattr(config, 'learning_rate', 3e-4)
+        self.tau = getattr(config, 'tau', 0.005)  # Polyak coefficient
+        self.training = getattr(config, 'training', False)
+        self.hidden_dim = getattr(config, 'hidden_dim', 128)
 
-        # Buffer
-        self.buffer_size     = getattr(config, 'buffer_size',     50000)
+        # Replay buffer
+        self.buffer_size = getattr(config, 'buffer_size', 50000)
         self.min_buffer_size = getattr(config, 'min_buffer_size', 5000)
 
-        # Networks built lazily on first act() so we can load weights cleanly
-        self.q_net      = None
+        # Networks are built lazily on first act() so load() can queue a
+        # weights file before the network exists.
+        self.q_net = None
         self.target_net = None
-        self.optimizer  = None
-        self.replay_buffer = None  # built when training starts
+        self.optimizer = None
+        self.replay_buffer = None
 
-        self._step_count   = 0     # env steps stored
-        self._train_steps  = 0     # gradient updates done
-        self._last_state   = None
-        self._last_action  = None
-        self._epsilon_start_value = self.epsilon  # for per-step linear decay
+        self._step_count = 0  # env steps stored
+        self._train_steps = 0  # gradient updates done
+        self._last_state = None
+        self._last_action = None
 
-        # Frame stacker maintains the rolling history of (me, opp) channels.
-        # Reset between episodes so history doesn't leak across resets.
         self._stacker = FrameStacker(k=FRAME_STACK)
 
     # -- Network setup --------------------------------------------------------
     def _build_networks(self):
-        self.q_net      = CNNQNetwork(GLOBAL_DIM, self.hidden_dim).to(self.device)
+        self.q_net = CNNQNetwork(GLOBAL_DIM, self.hidden_dim).to(self.device)
         self.target_net = CNNQNetwork(GLOBAL_DIM, self.hidden_dim).to(self.device)
         self.target_net.load_state_dict(self.q_net.state_dict())
         self.target_net.eval()
-        self.optimizer  = optim.Adam(self.q_net.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.q_net.parameters(), lr=self.lr)
 
         if self.training and self.replay_buffer is None:
             self.replay_buffer = ReplayBuffer(
@@ -471,9 +428,13 @@ class Agent(BaseAgent):
             )
 
     def reset_episode(self):
-        self._last_state  = None
+        self._last_state = None
         self._last_action = None
         self._stacker.reset()
+
+    def end_episode(self):
+        # Epsilon decays per env step (in store()), so this is just a hook.
+        self.reset_episode()
 
     def _state_to_tensors(self, state):
         grid = torch.from_numpy(state["grid"]).unsqueeze(0).to(self.device)
@@ -482,8 +443,6 @@ class Agent(BaseAgent):
 
     # -- Action selection -----------------------------------------------------
     def act(self, observation: EnvState) -> int:
-        # Advance the frame stacker. From here on, self._stacker holds
-        # the history including this observation as the newest frame.
         state = self._stacker.step(observation)
 
         if self.q_net is None:
@@ -501,13 +460,22 @@ class Agent(BaseAgent):
                 del self._pending_load_path
 
         if self.training and random.random() < self.epsilon:
-            action = random.randint(0, N_ACTIONS - 1)
+            # Exploration: BFS-biased random action.
+            # The last 4 entries of `global` are a one-hot of the BFS-suggested
+            # next step toward the nearest reachable item. We follow it with
+            # probability BFS_EXPLORE_PROB; otherwise pick uniformly. If BFS
+            # has no suggestion (all-zero one-hot), fall back to uniform.
+            bfs_one_hot = state["global"][-4:]
+            if random.random() < BFS_EXPLORE_PROB and bfs_one_hot.sum() > 0:
+                action = int(np.argmax(bfs_one_hot))
+            else:
+                action = random.randint(0, N_ACTIONS - 1)
         else:
             with torch.no_grad():
                 grid, gvec = self._state_to_tensors(state)
                 action = int(self.q_net(grid, gvec).argmax(dim=1).item())
 
-        self._last_state  = state
+        self._last_state = state
         self._last_action = action
         return action
 
@@ -515,15 +483,17 @@ class Agent(BaseAgent):
     def store(self, next_obs, reward, done):
         if not self.training or self._last_state is None:
             return
-        # Use peek() to compute what the stacked next_state would look like
-        # without mutating the stacker -- the next act() call will properly
-        # advance it via step().
+
+        # peek() so the stacker isn't double-advanced before the next act().
         next_state = self._stacker.peek(next_obs)
         self.replay_buffer.push(
             self._last_state, self._last_action, reward, next_state, float(done)
         )
         self._step_count += 1
-        # Per-step linear epsilon decay
+
+        # Linear epsilon decay tied to env steps, not episodes (episode
+        # lengths are randomised in training, which would otherwise make
+        # decay rate non-uniform).
         frac = min(1.0, self._step_count / float(self.epsilon_decay_steps))
         self.epsilon = self._epsilon_start_value + frac * (
             self.epsilon_end - self._epsilon_start_value
@@ -536,6 +506,7 @@ class Agent(BaseAgent):
         return self._train_step()
 
     def update(self, next_obs, reward, done):
+        """Convenience: store() followed by train_step()."""
         self.store(next_obs, reward, done)
         return self.train_step()
 
@@ -543,17 +514,19 @@ class Agent(BaseAgent):
         grids, globs, actions, rewards, n_grids, n_globs, dones = \
             self.replay_buffer.sample(self.batch_size)
 
-        grids   = torch.from_numpy(grids).to(self.device)
-        globs   = torch.from_numpy(globs).to(self.device)
+        grids = torch.from_numpy(grids).to(self.device)
+        globs = torch.from_numpy(globs).to(self.device)
         actions = torch.from_numpy(actions).to(self.device)
         rewards = torch.from_numpy(rewards).to(self.device)
         n_grids = torch.from_numpy(n_grids).to(self.device)
         n_globs = torch.from_numpy(n_globs).to(self.device)
-        dones   = torch.from_numpy(dones).to(self.device)
+        dones = torch.from_numpy(dones).to(self.device)
 
-        q_values = self.q_net(grids, globs).gather(1, actions.unsqueeze(1)).squeeze(1)
+        q_values = self.q_net(grids, globs).gather(
+            1, actions.unsqueeze(1)
+        ).squeeze(1)
 
-        # Double DQN target
+        # Double DQN: live net picks the best next action, target net evaluates it.
         with torch.no_grad():
             next_actions = self.q_net(n_grids, n_globs).argmax(dim=1)
             next_q = self.target_net(n_grids, n_globs).gather(
@@ -568,17 +541,14 @@ class Agent(BaseAgent):
         torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), 1.0)
         self.optimizer.step()
 
-        # Soft target update (Polyak)
+        # Polyak (soft) target update: target <- (1 - tau) * target + tau * live.
         with torch.no_grad():
-            for p, tp in zip(self.q_net.parameters(), self.target_net.parameters()):
+            for p, tp in zip(self.q_net.parameters(),
+                             self.target_net.parameters()):
                 tp.data.mul_(1.0 - self.tau).add_(self.tau * p.data)
 
         self._train_steps += 1
         return float(loss.item())
-
-    def end_episode(self):
-        # Epsilon already decays per step now; keep the hook for compatibility.
-        self.reset_episode()
 
     # -- I/O ------------------------------------------------------------------
     def save(self, path=None, filename="weights.pth"):
@@ -587,6 +557,9 @@ class Agent(BaseAgent):
         torch.save(self.q_net.state_dict(), os.path.join(save_path, filename))
 
     def load(self) -> None:
+        # Queue the weights file; act() does the actual load once the
+        # network has been built. This lets the same Agent class work
+        # both for fresh training (no file yet) and for evaluation.
         weights_path = os.path.join(self.config.weights_dir, "weights.pth")
         if not os.path.exists(weights_path):
             print(f"No CNN weights found at {weights_path} -- starting fresh.")

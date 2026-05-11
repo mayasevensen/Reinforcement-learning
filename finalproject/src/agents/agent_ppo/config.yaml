@@ -1,23 +1,62 @@
-# PPO Agent Configuration
+# PPO Agent config
+# ---- Inference-time settings (used by agent.py) ----
+action_space: 4
+hidden_dim: 256
+deterministic: true                    # use argmax at competition time
+weights_path: "weights/ppo_latest.pt"  # relative to project root (where setup.py lives)
 
-# --- Network ---
-hidden_dim: 128
+# ---- Training settings (used by train.py) ----
+# Optimization
+learning_rate: 0.0003
+adam_eps: 0.00001
+total_updates: 2000
+num_envs: 4
+rollout_steps: 256
+ppo_epochs: 4
+minibatch_size: 256
+gamma: 0.99                      # was 0.995 - smaller value targets, easier to fit
+gae_lambda: 0.95
+clip_eps: 0.2
+value_loss_coef: 0.25            # was 0.5 - reduce value pressure on policy
+entropy_coef: 0.01
+entropy_coef_final: 0.003
+max_grad_norm: 0.5
+target_kl: 0.03
 
-# --- PPO core hyperparameters (from paper, Table 3) ---
-learning_rate: 0.0003      # 3e-4 as in paper
-gamma: 0.99                # discount factor
-gae_lambda: 0.95           # GAE lambda (paper Table 3)
-clip_epsilon: 0.2          # clipping parameter (best in paper Table 1)
-ppo_epochs: 4              # gradient epochs per rollout (paper uses 10;
-                           # 4 is safer for this small env to avoid overfitting)
-minibatch_size: 64         # minibatch size per SGD step
-vf_coef: 0.5               # value loss coefficient c1 (Eq. 9)
-ent_coef: 0.01             # entropy bonus coefficient c2 (Eq. 9)
-max_grad_norm: 0.5         # gradient clipping
+# Reward scaling - the critical fix.
+# Raw rewards have magnitude ~1-2 per step, so a 1000-step episode gives
+# returns of ~-2000. With these values, the value function targets are
+# enormous and the value loss drowns out the policy gradient. Scaling by
+# 0.2x brings returns into a sane range (-400 to +20) where PPO can learn.
+reward_scale: 0.2
 
-# --- Rollout ---
-rollout_len: 512           # steps collected before each PPO update
+# Reward shaping (potential-based, decayed during training)
+shaping_coef_initial: 0.5        # was 0.1 - bigger early signal toward items
+shaping_coef_final: 0.0
 
-# --- Inference / eval ---
-training: false
-weights_dir: "weights_ppo"
+# Episode horizon randomization
+min_episode_steps: 200
+max_episode_steps: 1000
+
+# Curriculum
+phase_random_frac: 0.05
+phase_baseline_frac: 0.15
+phase_bfs_frac: 0.30
+
+# Self-play
+selfplay_pool_size: 6
+snapshot_every: 25
+selfplay_bfs_mix: 0.4
+
+# Opponent locations (relative to project root)
+opponent_paths:
+  random:   "src/agents/random"
+  baseline: "src/agents/baseline"
+  bfs:      "src/agents/bfs"
+
+# Logging & eval
+log_every: 1
+eval_every: 25
+eval_episodes: 10
+checkpoint_every: 50
+seed: 42

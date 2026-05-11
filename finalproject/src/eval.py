@@ -151,7 +151,7 @@ def run_games(agent, opponent, env, n=10, max_steps=800, opp_name=""):
             wins += 1
 
         if (g + 1) % 10 == 0:
-            print(f"    {opp_name} game {g+1}/{n}: {my}-{opp}", end="\r")
+            print(f"    {opp_name} game {g+1}/{n}: {my}-{opp}".ljust(50), end="\r")
 
     if hasattr(agent, "epsilon"):
         agent.epsilon = old_eps

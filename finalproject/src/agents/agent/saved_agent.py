@@ -9,8 +9,6 @@ Improvements over the previous version:
   - Cleaner episode-boundary handling for the replay buffer.
   - Optional opponent-aware reward shaping is done in train.py, not here,
     so this file stays usable for both training and inference.
-  - Expanded local window from 5x5 to 7x7 for better corridor awareness.
-  - Last 3 actions as one-hot features to break Q-value symmetry when stuck.
 """
 
 import os
@@ -123,25 +121,24 @@ def bfs_distances(tile_map, start):
     return dist
 
 
-def preprocess_obs(obs, recent_actions=None):
+def preprocess_obs(obs):
     """
     Build a fixed-size feature vector. Every component is in roughly [-1, 1].
 
-    Layout (total 97 dims):
+    Layout (total 56 dims):
         my_pos_norm                   2
         opp_pos_norm                  2
         rel_opp                       2
         direction_to_nearest          2
         dist_to_nearest               1
         item_features (top 5)        15   (dx, dy, dist) per item
-        local 7x7 obstacles + items  49   (expanded from 5x5 for corridor awareness)
+        local 5x5 obstacles + items  25
         team_points (mine, opp)       2
         items_on_map                  1
         steps_norm                    1
         opp_close_flag                1
         opp_closer_to_my_target       1   <-- key competitive feature
         bfs_dist_to_nearest_item      1   <-- handles obstacles
-        last_3_actions (one-hot x3)  12   <-- breaks symmetry when stuck oscillating
     """
     raw_map = obs['map_features']['tile_type']
     my_pos = obs['units']['position'][0].astype(np.float32)
@@ -178,9 +175,8 @@ def preprocess_obs(obs, recent_actions=None):
         direction = np.zeros(2, dtype=np.float32)
         dist_to_nearest_man = 1.0
 
-    # Local 7x7 window (expanded from 5x5 for better corridor/obstacle awareness)
-    # Out-of-bounds treated as obstacle (0.5 = unknown/wall)
-    radius = 3
+    # Local 5x5 window (out-of-bounds treated as obstacle)
+    radius = 2
     local = np.full((2 * radius + 1, 2 * radius + 1), 0.5, dtype=np.float32)
     my_y, my_x = int(my_pos[0]), int(my_pos[1])
     for di in range(-radius, radius + 1):
@@ -217,17 +213,6 @@ def preprocess_obs(obs, recent_actions=None):
     else:
         bfs_d = np.array([1.0], dtype=np.float32)
 
-    # Last 3 actions as one-hot vectors (4 actions each = 12 dims total).
-    # All zeros if no history yet (start of episode).
-    # This breaks Q-value symmetry when the agent is stuck oscillating between
-    # two tiles -- the network can condition on "I just went left-right-left"
-    # and learn to try a different direction instead.
-    action_history = np.zeros(12, dtype=np.float32)
-    if recent_actions is not None:
-        for i, a in enumerate(recent_actions):   # up to 3 most recent
-            if a is not None:
-                action_history[i * 4 + a] = 1.0
-
     return np.concatenate([
         my_pos_norm,                              # 2
         opp_pos_norm,                             # 2
@@ -235,15 +220,14 @@ def preprocess_obs(obs, recent_actions=None):
         direction,                                # 2
         np.array([dist_to_nearest_man], dtype=np.float32),  # 1
         item_features,                            # 15
-        local.flatten(),                          # 49  (7x7)
+        local.flatten(),                          # 25
         team_points,                              # 2
         items_on_map,                             # 1
         steps_norm,                               # 1
         opp_close,                                # 1
         opp_closer,                               # 1
         bfs_d,                                    # 1
-        action_history,                           # 12
-    ])                                            # total: 97
+    ])                                            # total: 56
 
 
 # ---------------------------------------------------------------------------
@@ -277,10 +261,6 @@ class Agent(BaseAgent):
         self._last_state = None
         self._last_action = None
 
-        # Rolling window of the last 3 actions for the action-history feature.
-        # Uses None as a sentinel for "no action yet" (start of episode).
-        self._recent_actions = deque([None, None, None], maxlen=3)
-
     def _build_networks(self, input_dim):
         self.input_dim = input_dim
         self.q_net = QNetwork(input_dim, self.hidden_dim).to(self.device)
@@ -294,10 +274,9 @@ class Agent(BaseAgent):
         from crossing episode boundaries."""
         self._last_state = None
         self._last_action = None
-        self._recent_actions = deque([None, None, None], maxlen=3)
 
     def act(self, observation: EnvState) -> int:
-        state = preprocess_obs(observation, self._recent_actions)
+        state = preprocess_obs(observation)
 
         if self.q_net is None:
             self._build_networks(len(state))
@@ -310,7 +289,7 @@ class Agent(BaseAgent):
                         self.q_net.eval()
                     print("Weights loaded!")
                 except Exception as e:
-                    # Architecture mismatch (e.g. loading old weights):
+                    # Architecture mismatch (e.g. loading old non-dueling weights):
                     # start fresh rather than crash.
                     print(f"Could not load weights ({e}); starting fresh.")
                 del self._pending_load_path
@@ -324,14 +303,12 @@ class Agent(BaseAgent):
 
         self._last_state = state
         self._last_action = action
-        self._recent_actions.append(action)
         return action
 
     def store(self, next_obs, reward, done):
         if not self.training or self._last_state is None:
             return
-        # next_state uses the updated _recent_actions (already appended in act())
-        next_state = preprocess_obs(next_obs, self._recent_actions)
+        next_state = preprocess_obs(next_obs)
         self.replay_buffer.push(
             self._last_state, self._last_action, reward, next_state, float(done)
         )

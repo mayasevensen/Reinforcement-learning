@@ -1,0 +1,12 @@
+[log] writing CNN training log to C:\Users\somme\OneDrive - University of Bergen\Uib\Master\Inf266\Reinforcement-learning\finalproject\plots\training_log_cnn.txt
+No CNN weights found at weights\weights.pth -- starting fresh.
+[init] opponents loaded: passive, random, baseline, bfs
+Starting CNN training. device=cpu, epsilon=1.000, hidden_dim=128, num_episodes=3000
+Phases: 0-90 passive | 90-210 random | 210-720 random+baseline | 720-1500 baseline+BFS | 1500-2400 +selfplay | 2400-3000 tournament-mix
+Ep    50 [passive ] opp=passive  | avg_score=44.8 | score/100steps=7.93 | avg_len=567 | eps=0.924 | buf=20000 | dshape=0.162
+Ep   100 [random  ] opp=random   | avg_score=51.6 | score/100steps=8.53 | avg_len=607 | eps=0.842 | buf=20000 | dshape=0.124
+Ep   150 [random  ] opp=random   | avg_score=47.0 | score/100steps=8.29 | avg_len=572 | eps=0.765 | buf=20000 | dshape=0.085
+Ep   200 [random  ] opp=random   | avg_score=52.8 | score/100steps=8.58 | avg_len=611 | eps=0.683 | buf=20000 | dshape=0.047
+  [eval ep 200] vs baseline: 9.9-38.6 wr=0% | vs random: 3.5-5.8 wr=20% | vs bfs: 21.8-96.6 wr=0%
+  [eval] new best checkpoint (score=-0.316, baseline_wr=0%, bfs_margin=-74.8)
+Ep   250 [baseline] opp=random   | avg_score=52.7 | score/100steps=8.96 | avg_len=592 | eps=0.604 | buf=20000 | dshape=0.008

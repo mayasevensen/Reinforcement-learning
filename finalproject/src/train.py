@@ -7,9 +7,9 @@ Curriculum (5 phases over 5000 episodes):
                            before any competition is introduced.
   Phase 2 (ep  300– 800): vs Random only.
                            Introduces movement noise and mild competition.
-  Phase 3 (ep  800–1800): vs Random + Baseline (weighted toward baseline).
+  Phase 3 (ep  800–1600): vs Random + Baseline (weighted toward baseline).
                            Baseline's greedy Manhattan strategy is a real threat.
-  Phase 4 (ep 1800–3500): vs Baseline + BFS (weighted toward BFS).
+  Phase 4 (ep 1600–3500): vs Baseline + BFS (weighted toward BFS).
                            BFS routes around obstacles perfectly — forces the
                            agent to learn proper competitive navigation.
   Phase 5 (ep 3500–5000): vs BFS + Selfplay.
@@ -104,10 +104,9 @@ env_params = EnvParams()
 # ---------------------------------------------------------------------------
 # Training hyperparameters
 # ---------------------------------------------------------------------------
-NUM_EPISODES  = 5000
-MAX_STEPS     = 1000
-MIN_TRAIN_STEPS = 200
-MAX_TRAIN_STEPS = 600
+NUM_EPISODES    = 5000
+MIN_TRAIN_STEPS = 200   # competition games are mostly 200-600 steps
+MAX_TRAIN_STEPS = 800   # episode length sampled uniformly in this range
 SAVE_EVERY    = 500
 PRINT_EVERY   = 50
 EVAL_EVERY    = 200
@@ -196,7 +195,7 @@ def opponent_mix(episode):
     elif episode < 800:
         # Phase 2: introduce random competition
         return (0.0, 1.0, 0.0, 0.0, 0.0)
-    elif episode < 1800:
+    elif episode < 1600:
         # Phase 3: ramp up baseline
         t = (episode - 800) / 1000.0          # 0 -> 1 over this phase
         rp = max(0.0, 0.4 - 0.3 * t)         # 0.4 -> 0.1
@@ -204,7 +203,7 @@ def opponent_mix(episode):
         return (0.0, rp, bp, 0.0, 0.0)
     elif episode < 3500:
         # Phase 4: introduce BFS, fade out baseline
-        t = (episode - 1800) / 1700.0         # 0 -> 1 over this phase
+        t = (episode - 1600) / 1700.0         # 0 -> 1 over this phase
         bp = max(0.1, 0.6 - 0.5 * t)         # 0.6 -> 0.1
         bfsp = min(0.9, 0.4 + 0.5 * t)       # 0.4 -> 0.9
         return (0.0, 0.0, bp, bfsp, 0.0)
@@ -287,10 +286,9 @@ def shape_reward(obs, next_obs, raw_reward, distance_shape_weight):
 
 
 def distance_weight_schedule(episode):
-    """Decay from 0.2 to 0.0 over the first 800 episodes (aligned with Phase 2 end)."""
-    if episode >= 800:
+    if episode >= 1500:
         return 0.0
-    return 0.2 * (1.0 - episode / 800.0)
+    return 0.2 * (1.0 - episode / 1500.0)
 
 
 # ---------------------------------------------------------------------------
@@ -340,13 +338,14 @@ def checkpoint_score(wr_baseline, my_bfs, opp_bfs):
 # ---------------------------------------------------------------------------
 episode_rewards  = []
 episode_scores   = []
+episode_lengths  = []   # track actual steps per episode
 best_ckpt_score  = -999.0
 
 print(f"Starting training. device={agent.device}, "
       f"epsilon={agent.epsilon:.3f}, hidden_dim={agent.hidden_dim}, "
       f"num_episodes={NUM_EPISODES}")
-print("Phases: 0-300 passive | 300-800 random | 800-1800 baseline | "
-      "1800-3500 BFS | 3500-5000 BFS+selfplay")
+print("Phases: 0-300 passive | 300-800 random | 800-1600 baseline | "
+      "1600-3500 BFS | 3500-5000 BFS+selfplay")
 
 for episode in range(NUM_EPISODES):
     opponent, opp_name = pick_opponent(episode)
@@ -354,8 +353,7 @@ for episode in range(NUM_EPISODES):
 
     obs, info = env.reset(options=dict(params=env_params))
     agent.reset_episode()
-    episode_max_steps = np.random.randint(MIN_TRAIN_STEPS, MAX_TRAIN_STEPS + 1)  # ADD THIS
-
+    episode_max_steps = np.random.randint(MIN_TRAIN_STEPS, MAX_TRAIN_STEPS + 1)
 
     total_reward = 0.0
     done  = False
@@ -382,6 +380,7 @@ for episode in range(NUM_EPISODES):
 
     episode_rewards.append(total_reward)
     episode_scores.append(int(info['state'].team_points[0]))
+    episode_lengths.append(steps)
     agent.end_episode()
 
     # ------------------------------------------------------------------
@@ -400,17 +399,24 @@ for episode in range(NUM_EPISODES):
     # Periodic print
     # ------------------------------------------------------------------
     if (episode + 1) % PRINT_EVERY == 0:
-        avg_r = np.mean(episode_rewards[-PRINT_EVERY:])
-        avg_s = np.mean(episode_scores[-PRINT_EVERY:])
+        recent_scores   = episode_scores[-PRINT_EVERY:]
+        recent_lengths  = episode_lengths[-PRINT_EVERY:]
+        avg_s    = np.mean(recent_scores)
+        avg_len  = np.mean(recent_lengths)
+        # Score per 100 steps: comparable across different episode lengths
+        avg_s_per_100 = np.mean([
+            s / l * 100 for s, l in zip(recent_scores, recent_lengths)
+        ])
         phase = (
             "passive"  if episode < 300  else
             "random"   if episode < 800  else
-            "baseline" if episode < 1800 else
+            "baseline" if episode < 1600 else
             "bfs"      if episode < 3500 else
             "bfs+self"
         )
         print(f"Ep {episode+1:5d} [{phase:8s}] opp={opp_name:8s} | "
-              f"avg_reward={avg_r:7.1f} | avg_score={avg_s:.2f} | "
+              f"avg_score={avg_s:.1f} | score/100steps={avg_s_per_100:.2f} | "
+              f"avg_len={avg_len:.0f} | "
               f"eps={agent.epsilon:.3f} | buf={len(agent.replay_buffer)} | "
               f"dshape={dshape_w:.3f}")
         

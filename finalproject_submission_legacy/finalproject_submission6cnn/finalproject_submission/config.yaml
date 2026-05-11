@@ -8,7 +8,7 @@ hidden_dim: 128
 # --- Learning ---
 learning_rate: 0.0003
 gamma: 0.99
-batch_size: 64
+batch_size: 128
 
 # --- Exploration (training only) ---
 # Linear decay from epsilon_start to epsilon_end over `epsilon_decay_steps`
@@ -16,15 +16,14 @@ batch_size: 64
 # episodes that's ~2.5M total steps, so 400k decay reaches epsilon_end at
 # roughly episode 800 -- right when the baseline phase starts.
 epsilon_start: 1.0
-epsilon_end: 0.06
-# With ~500 steps/ep and 3000 episodes = ~1.5M total steps.
-# 200k decay steps hits epsilon_end around episode 400 -- baseline phase start.
-epsilon_decay_steps: 350000
+epsilon_end: 0.07
+epsilon_decay_steps: 400000
 
 # --- Replay buffer ---
-# Reduced for CPU: less RAM pressure and faster sampling.
-buffer_size: 20000
-min_buffer_size: 2000
+# Pre-allocated. ~400 MB at this capacity with 4x16x16 float32 grids.
+# Drop to 20000 if you're tight on RAM.
+buffer_size: 50000
+min_buffer_size: 5000
 
 # --- Target network: soft (Polyak) update ---
 # Applied every train_step. tau=0.005 means the target lags the online
@@ -32,9 +31,7 @@ min_buffer_size: 2000
 tau: 0.005
 
 # --- Training cadence ---
-# Run a gradient update every N env steps. 8 is appropriate for CPU-only
-# training -- still ~300K updates over 3000 episodes, plenty for this env.
-train_every: 8
+train_every: 4
 
 # --- Inference / eval ---
 training: false
